@@ -9,8 +9,13 @@ import { SlashCommand } from "../types";
 
 const command: SlashCommand = {
   command: new SlashCommandBuilder()
-    .setName("ping")
-    .setDescription("Shows the bot's ping"),
+    .setName("get_num_songs")
+    // .setDescription(
+    //   `Retrieve the number of songs currently in blowbot's database! Takes an optional parameter, collection,
+    //     which can be used to only retrieve the number of songs in a specific collection`
+    .setDescription(
+      `Retrieve the number of songs currently in blowbot's database!`
+    ),
   execute: (interaction) => {
     interaction.reply({
       embeds: [
@@ -20,7 +25,7 @@ const command: SlashCommand = {
       ],
     });
   },
-  cooldown: 1,
+  cooldown: 2,
 };
 
 export default command;

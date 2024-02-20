@@ -4,22 +4,25 @@ import {
   TextChannel,
   EmbedBuilder,
 } from "discord.js";
-import { getThemeColor } from "../../functions";
-import { SlashCommand } from "../../types";
+import { getThemeColor } from "../functions";
+import { SlashCommand } from "../types";
 
-export const get_song: SlashCommand = {
+export const command: SlashCommand = {
   command: new SlashCommandBuilder()
-    .setName("ping")
-    .setDescription("Shows the bot's ping"),
+    .setName("get_collections")
+    .setDescription(
+      "Retrieve the names of the song collections currently available in blowbot's database!"
+    ),
   execute: (interaction) => {
     interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setAuthor({ name: "MRC License" })
           .setDescription(`🏓 Pong! \n 📡 Ping: ${interaction.client.ws.ping}`)
           .setColor(getThemeColor("text")),
       ],
     });
   },
-  cooldown: 10,
+  cooldown: 2,
 };
+
+export default command;
