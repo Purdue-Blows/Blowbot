@@ -7,13 +7,14 @@ import { Command, SlashCommand } from "../types";
 
 module.exports = (client: Client) => {
   const slashCommands: SlashCommandBuilder[] = [];
-  const commands: Command[] = [];
+  // const commands: Command[] = [];
 
   let slashCommandsDir = join(__dirname, "../slashCommands");
-  let commandsDir = join(__dirname, "../commands");
+  // let commandsDir = join(__dirname, "../commands");
 
   readdirSync(slashCommandsDir).forEach((file) => {
     if (!file.endsWith(".js")) return;
+    console.log(file);
     let command: SlashCommand = require(`${slashCommandsDir}/${file}`).default;
     slashCommands.push(command.command);
     client.slashCommands.set(command.command.name, command);
@@ -43,15 +44,15 @@ module.exports = (client: Client) => {
           )} slash command(s)`
         )
       );
-      console.log(
-        color(
-          "text",
-          `🔥 Successfully loaded ${color(
-            "variable",
-            commands.length
-          )} command(s)`
-        )
-      );
+      // console.log(
+      //   color(
+      //     "text",
+      //     `🔥 Successfully loaded ${color(
+      //       "variable",
+      //       commands.length
+      //     )} command(s)`
+      //   )
+      // );
     })
     .catch((e) => {
       console.log(e);
