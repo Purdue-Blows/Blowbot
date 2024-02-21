@@ -13,7 +13,7 @@ export function get_collections(): APIApplicationCommandOptionChoice<string>[] {
 }
 
 export enum Collection {
-  REAL_BOOK,
+  REAL_BOOK = "REAL_BOOK",
 }
 
 export function collection_to_string(collection: string): string {

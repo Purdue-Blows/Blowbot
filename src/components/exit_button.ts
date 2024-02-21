@@ -1,5 +1,3 @@
-// TODO: add this button to all layered interactions to allow the user to exit out at any time
-// Make it the closed icon
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
 // Define the emoji ID or name for the closed icon
