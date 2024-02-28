@@ -1,5 +1,4 @@
-from utils.constants import SERVERS
-from bot import bot
+from utils.constants import SERVERS, PURDUE_BLOWS_PLAYLIST_URL, bot
 
 
 @bot.slash_command(
@@ -8,4 +7,4 @@ from bot import bot
     guild_ids=SERVERS,
 )
 async def get_playlist(ctx):
-    return
+    await ctx.respond(PURDUE_BLOWS_PLAYLIST_URL, ephemeral=True)

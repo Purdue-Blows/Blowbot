@@ -1,8 +1,10 @@
-from discord.ext import commands
-from utils.constants import BOT_DEBUGGING_SERVER_CHANNEL_IDS, DISCORD_TOKEN, SERVERS
-
-# Initialize bot
-from bot import bot
+from utils.constants import (
+    BOT_DEBUGGING_SERVER_CHANNEL_IDS,
+    DISCORD_TOKEN,
+    SERVERS,
+    bot,
+    spotify
+)
 
 # Register commands
 from commands import (
@@ -21,5 +23,12 @@ from commands import (
 
 # Register events
 from events import welcome
+
+# Start playing from the playlist on_ready
+@bot.event
+async def on_ready():
+    # Check if bot is currently streaming the Purdue Blows playlist
+    spotify.
+    # If not, start streaming
 
 bot.run(DISCORD_TOKEN)

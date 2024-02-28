@@ -1,5 +1,4 @@
-from utils.constants import SERVERS
-from bot import bot
+from utils.constants import SERVERS, bot
 
 
 @bot.slash_command(

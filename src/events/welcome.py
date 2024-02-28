@@ -1,8 +1,8 @@
-from bot import bot
 from utils.constants import (
     SERVERS,
     PURDUE_BLOWS_CHANNEL_IDS,
     BOT_DEBUGGING_SERVER_CHANNEL_IDS,
+    bot,
 )
 
 
