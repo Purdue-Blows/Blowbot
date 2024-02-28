@@ -2,8 +2,8 @@
 The official Purdue Blows Discord Bot! 
 - Built by Purdue Jazz for Purdue Jazz!
 - Utilizes: 
-  - Discord API: https://discord.com/developers/docs/reference
-  - Spotify API: https://developer.spotify.com/documentation/web-api
+  - Pycord API: https://docs.pycord.dev/en/stable/ext/commands/api.html#discord.ext.commands.Bot
+  - Spotipy API: https://spotipy.readthedocs.io/en/2.22.1/
 ## Commands
 - /help: Get some advice on Blowbot and how to best utilize it
 - /add_to_playlist (link): Adds a link to the <link href="https://open.spotify.com/playlist/6MPc4BFOUT9mUIz0G6ME4B?si=z4XGO1ELRLqfS3TyrmbiHA&pt=dbaecdd9341408cee81a09531cefcb75">Purdue Blows playlist</link>
