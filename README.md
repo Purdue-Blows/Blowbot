@@ -1,7 +1,4 @@
 # Blowbot
-<<<<<<< HEAD
-A Discord bot for the Purdue Blows Discord server
-=======
 The official Purdue Blows Discord Bot! 
 - Built by Purdue Jazz for Purdue Jazz!
 - Utilizes: 
@@ -19,4 +16,3 @@ The official Purdue Blows Discord Bot!
 - /jazzle: Determine the jazz standard based on a number of hints. How many tries can you get it in?
 - /jazz_trivia: Get a jazz trivia question
 - /profile: Get information about your current user profile, from your current roles, badges, jazz trivia and jazzle scores, and more
->>>>>>> master
