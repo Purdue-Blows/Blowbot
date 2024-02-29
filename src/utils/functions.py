@@ -1,6 +1,3 @@
-from constants import spotify
-
-
 async def is_bot_playing():
     # Retrieve the current playback state from Spotify
     current_playback = spotify.current_playback()
@@ -10,3 +7,7 @@ async def is_bot_playing():
         return True
     else:
         return False
+
+
+async def clear_queue():
+    pass

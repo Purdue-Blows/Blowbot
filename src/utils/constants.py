@@ -1,9 +1,12 @@
 import os
 import discord
+import sqlite3
 from dotenv import load_dotenv
 from discord.ext import commands
+
+# May still use spotify for the extensive metadata
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,6 +22,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DATABASE_NAME = os.getenv("MONGO_DATABASE_NAME")
 SPOTIFY_ID = os.getenv("SPOTIFY_ID")
 SPOTIFY_SECRET = os.getenv("SPOTIFY_SECRET")
+SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
 
 PURDUE_BLOWS_CHANNEL_IDS = {
     "general": "1148646209586745391",
@@ -31,15 +35,55 @@ BOT_DEBUGGING_SERVER_CHANNEL_IDS = {
     "general_voice": "909075276774907948",
 }
 
-PURDUE_BLOWS_PLAYLIST_URL = "https://open.spotify.com/playlist/6MPc4BFOUT9mUIz0G6ME4B?si=z4XGO1ELRLqfS3TyrmbiHA&pt_success=1&nd=1&dlsi=11e24dc164584f44"
+# PURDUE_BLOWS_PLAYLIST_URL = "https://open.spotify.com/playlist/6MPc4BFOUT9mUIz0G6ME4B?si=z4XGO1ELRLqfS3TyrmbiHA&pt_success=1&nd=1&dlsi=11e24dc164584f44"
+# PURDUE_BLOWS_PLAYLIST_URI = "spotify:playlist:6MPc4BFOUT9mUIz0G6ME4B"
+PURDUE_BLOWS_PLAYLIST_URL = (
+    "https://www.youtube.com/playlist?list=PLDLRACxotfNFS5nL608HiV84mN0RkUpUY"
+)
 
+DB = "bot.db"
 
 intents = discord.Intents.default() | discord.Intents.members
 
 # Initialize bot
 bot = commands.Bot(intents=intents)
+assert bot != None
 
-# Initialize spotify client
-# Note that only admins can use some spotify commands
-scope = "user-modify-playback-state"
-spotify = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+# Initialize spotify
+spotify = spotipy.Spotify(
+    client_credentials_manager=SpotifyClientCredentials(
+        client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET
+    )
+)
+assert spotify != None
+
+# Initialize database, creating tables if the db doesn't exist
+con = None
+cur = None
+if not os.path.exists(os.path.join(BASE_DIR, DB)):
+    con = sqlite3.connect(DB)
+    cur = con.cursor()
+    cur.execute(
+        """
+        CREATE TABLE users(name:TEXT, jazzle_streak:INTEGER, 
+        jazz_trivia_correct:INTEGER, jazz_trivia_incorrect:INTEGER, 
+        jazz_trivia_percentage:REAL)
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE playlist(name:TEXT, artist:TEXT, album:TEXT | NULL, 
+        release_date:TEXT | NULL, url:TEXT, song:BLOB)
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE queue(name:TEXT, artist:TEXT, album:TEXT | NULL, 
+        release_date:TEXT | NULL, url:TEXT, user_id:INTEGER)
+        """
+    )
+else:
+    con = sqlite3.connect(DB)
+    cur = con.cursor()
+assert con != None
+assert cur != None
