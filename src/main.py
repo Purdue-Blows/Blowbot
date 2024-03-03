@@ -1,6 +1,7 @@
 from dis import disco
 from tkinter import CURRENT
 from models.playlist import Playlist
+from slash_commands.play import play
 from utils.constants import (
     BOT_DEBUGGING_SERVER_CHANNEL_IDS,
     DISCORD_TOKEN,
@@ -11,7 +12,7 @@ from utils.constants import (
 )
 
 # Register commands
-from commands import (
+from slash_commands import (
     add_to_playlist,
     add_to_queue,
     get_current_song,
@@ -30,8 +31,8 @@ from events import welcome
 from services.discord import (
     is_bot_playing,
     is_bot_connected,
-    disconnect,
     connect,
+    disconnect,
     move_to,
     play_song,
 )
@@ -46,7 +47,7 @@ async def on_ready():
     # Check if the bot is currently playing music
     if not await is_bot_playing():
         # Get the voice channel to join
-        if not is_bot_connected():
+        if not await is_bot_connected():
             await connect(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
         else:
             await move_to(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
@@ -64,7 +65,7 @@ async def on_disconnect():
     await Queue.clear_queue()
 
     # Disconnect from vc
-    if is_bot_connected():
+    if await is_bot_connected():
         await disconnect()
 
 

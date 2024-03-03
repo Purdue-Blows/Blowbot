@@ -1,5 +1,4 @@
 from math import e
-from commands.play import play
 from models.playlist import Playlist
 from models.songs import Song
 from utils.constants import SERVERS, bot
@@ -13,7 +12,7 @@ from typing import Any
     description="Remove from playlist; you can only remove a song that you added, unless you are an admin",
     guild_ids=SERVERS,
 )
-async def remove_from_playlist(ctx: commands.Context, index: Any) -> None:
+async def remove_from_playlist(ctx: commands.Context, index: int) -> None:
     try:
         # retrieve the song from playlist at index index
         playlist = await Playlist.retrieve_one(id=index)

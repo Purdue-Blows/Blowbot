@@ -1,9 +1,9 @@
 from typing import Union
 from utils.state import CURRENT_SONG
 from utils.constants import bot
-import pycord.discord as discord
-from discord.Member import Member
-from discord.User import User
+from discord import VoiceChannel
+from discord import Member
+from discord import User
 from models.playlist import Playlist
 from models.queue import Queue
 
@@ -15,24 +15,31 @@ async def is_bot_playing() -> bool:
 
 # Checks if the bot is connected to a VC
 async def is_bot_connected() -> bool:
-    return bot.voice_client is not None
+    return bot.voice_clients is not None
 
 
 # Attempts to connect the song to a VC vc
-async def connect(vc: discord.VoiceClient) -> None:
-    bot.voice_client = vc
+async def connect(id: str) -> None:
+    vc = bot.get_channel(id)
+    print(vc)
+    vc.connect()
+    # bot.voice_clients = vc
     return
 
 
 # Attempts to connect the song to a VC vc
-async def move_to(vc: discord.VoiceClient) -> None:
-    bot.voice_client.move_to(vc)
+async def move_to(id: str) -> None:
+    vc = bot.get_channel(id)
+    print(vc)
+    vc.connect()
+    # bot.voice_clients.move_to(vc)
     return
 
 
 # Attempts to disconnect the bot from voice
 async def disconnect() -> None:
-    bot.voice_client = None
+    for vc in bot.voice_clients:
+        vc.disconnect()
     return
 
 
@@ -49,7 +56,7 @@ async def play_song() -> None:
         and (isinstance(CURRENT_SONG, Playlist) or isinstance(CURRENT_SONG, Queue))
         and CURRENT_SONG.audio is not None
     ):
-        bot.voice_client.play(CURRENT_SONG.audio)
+        bot.voice_clients.play(CURRENT_SONG.audio)
 
 
 # Pause the current song
@@ -60,4 +67,4 @@ async def pause() -> None:
         and (isinstance(CURRENT_SONG, Playlist) or isinstance(CURRENT_SONG, Queue))
         and CURRENT_SONG.audio is not None
     ):
-        bot.voice_client.pause(CURRENT_SONG.audio)
+        bot.voice_clients.pause(CURRENT_SONG.audio)

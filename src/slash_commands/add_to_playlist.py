@@ -32,7 +32,7 @@ async def add_to_playlist(
     if name is None or artist is None or album is None or release_date is None:
         # Get any data possible from youtube
         if name is None or artist is None:
-            song = await youtube.get_song_metadata_from_youtube(song.url)
+            song = await youtube.get_song_metadata_from_youtube(song)
         song = await spotify.get_song_metadata_from_spotify(song)
     # if the data isn't acquired, throw an error accordingly
     try:

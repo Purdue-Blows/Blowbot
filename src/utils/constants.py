@@ -65,25 +65,27 @@ if not os.path.exists(os.path.join(BASE_DIR, DB)):
     cur = con.cursor()
     cur.execute(
         """
-        CREATE TABLE users(id: AUTOINCREMENT INTEGER PRIMARY KEY, name:TEXT UNIQUE, jazzle_streak:INTEGER, 
-        jazz_trivia_correct:INTEGER, jazz_trivia_incorrect:INTEGER, 
-        jazz_trivia_percentage:REAL)
+        CREATE TABLE users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, jazzle_streak INTEGER, 
+        jazz_trivia_correct INTEGER, jazz_trivia_incorrect INTEGER, 
+        jazz_trivia_percentage REAL)
         """
     )
     cur.execute(
         """
-        CREATE TABLE songs(id: AUTOINCREMENT INTEGER PRIMARY KEY, name:TEXT, artist:TEXT, url:TEXT UNIQUE, album:TEXT | NULL, 
-        release_date:TEXT | NULL)
+        CREATE TABLE songs(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, artist TEXT, url TEXT UNIQUE, album TEXT NULL, 
+        release_date TEXT NULL)
         """
     )
     cur.execute(
         """
-        CREATE TABLE playlist(id: AUTOINCREMENT INTEGER PRIMARY KEY, song_id: INTEGER FOREIGN KEY, song:BLOB, played:BOOLEAN, user_id:INTEGER)
+        CREATE TABLE playlist(id INTEGER PRIMARY KEY AUTOINCREMENT, song_id INTEGER, song BLOB, played BOOLEAN, user_id INTEGER,
+        FOREIGN KEY(song_id) REFERENCES songs(id))
         """
     )
     cur.execute(
         """
-        CREATE TABLE queue(id: AUTOINCREMENT INTEGER PRIMARY KEY, song_id: INTEGER FOREIGN KEY, song:BLOB, user_id:INTEGER)
+        CREATE TABLE queue(id INTEGER PRIMARY KEY AUTOINCREMENT, song_id INTEGER, song BLOB, user_id INTEGER,
+        FOREIGN KEY(song_id) REFERENCES songs(id))
         """
     )
     cur.execute("PRAGMA foreign_keys = ON")
