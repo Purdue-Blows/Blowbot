@@ -4,9 +4,9 @@ import sqlite3
 from dotenv import load_dotenv
 from discord.ext import commands
 
-# May still use spotify for the extensive metadata
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+import yt_dlp
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -23,6 +23,7 @@ MONGO_DATABASE_NAME = os.getenv("MONGO_DATABASE_NAME")
 SPOTIFY_ID = os.getenv("SPOTIFY_ID")
 SPOTIFY_SECRET = os.getenv("SPOTIFY_SECRET")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
+MAX_MESSAGE_LENGTH = 2000
 
 PURDUE_BLOWS_CHANNEL_IDS = {
     "general": "1148646209586745391",
@@ -41,7 +42,7 @@ PURDUE_BLOWS_PLAYLIST_URL = (
     "https://www.youtube.com/playlist?list=PLDLRACxotfNFS5nL608HiV84mN0RkUpUY"
 )
 
-DB = "bot.db"
+DB = "blowbot.db"
 
 intents = discord.Intents.default() | discord.Intents.members
 
@@ -65,25 +66,40 @@ if not os.path.exists(os.path.join(BASE_DIR, DB)):
     cur = con.cursor()
     cur.execute(
         """
-        CREATE TABLE users(name:TEXT, jazzle_streak:INTEGER, 
+        CREATE TABLE users(name:TEXT UNIQUE, jazzle_streak:INTEGER, 
         jazz_trivia_correct:INTEGER, jazz_trivia_incorrect:INTEGER, 
         jazz_trivia_percentage:REAL)
         """
     )
     cur.execute(
         """
-        CREATE TABLE playlist(name:TEXT, artist:TEXT, album:TEXT | NULL, 
-        release_date:TEXT | NULL, url:TEXT, song:BLOB)
+        CREATE TABLE songs(name:TEXT, artist:TEXT, url:TEXT UNIQUE, album:TEXT | NULL, 
+        release_date:TEXT | NULL)
         """
     )
     cur.execute(
         """
-        CREATE TABLE queue(name:TEXT, artist:TEXT, album:TEXT | NULL, 
-        release_date:TEXT | NULL, url:TEXT, user_id:INTEGER)
+        CREATE TABLE playlist(song_id: INTEGER FOREIGN KEY, song:BLOB, played:BOOLEAN, user_id:INTEGER)
         """
     )
+    cur.execute(
+        """
+        CREATE TABLE queue(song_id: INTEGER FOREIGN KEY, song:BLOB, user_id:INTEGER)
+        """
+    )
+    cur.execute("PRAGMA foreign_keys = ON")
 else:
     con = sqlite3.connect(DB)
     cur = con.cursor()
 assert con != None
 assert cur != None
+
+# Initialize yt-dlp
+yt_opts = {
+    "best-audio": True,
+    "extract_audio": True,
+    "audio-format": "mp3",
+    "audio-quality": 0,
+}
+ydl = yt_dlp.YoutubeDL(yt_opts)
+assert ydl != None

@@ -1,13 +1,12 @@
-async def is_bot_playing():
-    # Retrieve the current playback state from Spotify
-    current_playback = spotify.current_playback()
+from discord.ext import commands
+from utils.constants import MAX_MESSAGE_LENGTH
 
-    # Check if the playback state exists and if the bot is currently playing
-    if current_playback is not None and current_playback["is_playing"]:
-        return True
+
+async def send_message_in_parts(ctx: commands.Context, message: str) -> None:
+    if len(message) > MAX_MESSAGE_LENGTH:
+        while len(message) > MAX_MESSAGE_LENGTH:
+            await ctx.respond(message[:MAX_MESSAGE_LENGTH])
+            message = message[MAX_MESSAGE_LENGTH:]
     else:
-        return False
-
-
-async def clear_queue():
-    pass
+        await ctx.respond(message)
+    return

@@ -4,6 +4,7 @@ The official Purdue Blows Discord Bot!
 - Utilizes: 
   - Pycord API: https://docs.pycord.dev/en/stable/ext/commands/api.html#discord.ext.commands.Bot
   - Spotipy API: https://spotipy.readthedocs.io/en/2.22.1/
+  - Yt-dlp API: https://github.com/yt-dlp/yt-dlp/blob/c54ddfba0f7d68034339426223d75373c5fc86df/yt_dlp/YoutubeDL.py#L457
 ## Commands
 To view a list of commands, run "/help"
 

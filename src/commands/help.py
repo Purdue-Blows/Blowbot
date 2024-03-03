@@ -1,3 +1,5 @@
+from typing import Any
+from discord.ext import commands
 from utils.constants import SERVERS, bot
 
 
@@ -6,7 +8,7 @@ from utils.constants import SERVERS, bot
     description="Get some advice on Blowbot and how to best utilize it",
     guild_ids=SERVERS,
 )
-async def help(ctx):
+async def help(ctx: commands.Context) -> Any:
     await ctx.respond(
         """
 # Blowbot

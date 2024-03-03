@@ -1,3 +1,4 @@
+# TODO: relook at this
 from utils.constants import (
     BOT_DEBUGGING_SERVER_CHANNEL_IDS,
     DISCORD_TOKEN,
@@ -51,6 +52,10 @@ async def on_ready():
 async def on_disconnect():
     # Clear the queue
     await clear_queue()
+
+    # Disconnect from vc
+    if bot.voice_client is not None:
+        await bot.voice_client.disconnect()
 
 
 bot.run(DISCORD_TOKEN)
