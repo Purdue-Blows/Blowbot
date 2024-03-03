@@ -1,4 +1,6 @@
-# TODO: relook at this
+from dis import disco
+from tkinter import CURRENT
+from models.playlist import Playlist
 from utils.constants import (
     BOT_DEBUGGING_SERVER_CHANNEL_IDS,
     DISCORD_TOKEN,
@@ -25,37 +27,45 @@ from commands import (
 
 # Register events
 from events import welcome
-from utils.functions import is_bot_playing, clear_queue
+from services.discord import (
+    is_bot_playing,
+    is_bot_connected,
+    disconnect,
+    connect,
+    move_to,
+    play_song,
+)
+from models.queue import Queue
+from utils.state import CURRENT_SONG
 
 
 # Start playing from the playlist on_ready
 @bot.event
 async def on_ready():
+    global CURRENT_SONG
     # Check if the bot is currently playing music
     if not await is_bot_playing():
         # Get the voice channel to join
-        voice_channel = bot.get_channel(
-            BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"]
-        )
-
-        # Check if the bot is already in a voice channel
-        if bot.voice_client is not None:
-            await bot.voice_client.move_to(voice_channel)
+        if not is_bot_connected():
+            await connect(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
         else:
-            # Connect the bot to the voice channel
-            await voice_channel.connect()
+            await move_to(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
+
+        # Initialize the current song
+        CURRENT_SONG = await Playlist.retrieve_one()
 
         # Start streaming from the playlist
+        await play_song()
 
 
 @bot.event
 async def on_disconnect():
     # Clear the queue
-    await clear_queue()
+    await Queue.clear_queue()
 
     # Disconnect from vc
-    if bot.voice_client is not None:
-        await bot.voice_client.disconnect()
+    if is_bot_connected():
+        await disconnect()
 
 
 bot.run(DISCORD_TOKEN)

@@ -1,6 +1,8 @@
 from discord.ext import commands
 from typing import Any, Optional, Dict
-from utils.constants import SERVERS, bot, cur
+from models.queue import Queue
+from models.users import User
+from utils.constants import SERVERS, bot, con
 from models.songs import Song
 from services import youtube, spotify
 
@@ -28,33 +30,45 @@ async def add_to_queue(
     if name is None or artist is None or album is None or release_date is None:
         # Get any data possible from youtube
         if name is None or artist is None:
-            song = await youtube.get_song_metadata_from_youtube(song.url)
+            song = await youtube.get_song_metadata_from_youtube(song)
         song = await spotify.get_song_metadata_from_spotify(song)
     # if the data isn't acquired, throw an error accordingly
-    if song.name is None or song.artist is None:
+    try:
+        await Song.add(song=song)
+    except Exception as e:
         await ctx.respond(
-            "Sorry, we couldn't find the song you were looking for", ephemeral=True
-        )
-        return
-    # if the data is acquired, update the playlist table accordingly
-    result: Dict[str, Any] = cur.execute(
-        "INSERT INTO songs (name, artist, url, album, release_date) VALUES (?, ?, ?, ?, ?)",
-        (song.name, song.artist, song.url, song.album, song.release_date),
-    ).fetchone()
-    if not result:
-        await ctx.respond(
-            "Sorry, that song's already in the playlist",
+            "Sorry, that song's already in the database",
             ephemeral=True,
         )
-    # Using the id of the song, add it to the playlist table
-    cur.execute(
-        "INSERT INTO queue (song_id, song, user_id) VALUES (?, ?, ?)",
-        (
-            cur.lastrowid,
-            await youtube.download_song_from_youtube(song.url),
-            ctx.author.id,
-        ),
-    ).fetchone()
-    # return a success message as confirmation
-    await ctx.respond(f"{ctx.author.name} added {song.name} to the queue!")
+        return
+    try:
+        # Using the id of the song, add it to the queue table
+        user = await User.retrieve_one(name=ctx.author.name)
+        if user is None:
+            user = await User.add(
+                User(
+                    name=ctx.author.name,
+                    jazzle_streak=0,
+                    jazz_trivia_correct=0,
+                    jazz_trivia_incorrect=0,
+                    jazz_trivia_percentage=0,
+                )
+            )
+            if user is None:
+                await ctx.respond(
+                    "An error occurred while adding the user to the database",
+                    ephemeral=True,
+                )
+                return
+        await Queue.add(
+            Queue(
+                song=song,
+                audio=await youtube.download_song_from_youtube(song.url),
+                user=user,
+            )
+        )
+        # return a success message as confirmation
+        await ctx.respond(f"{ctx.author.name} added {song.name} to the queue!")
+    except Exception as e:
+        await ctx.respond(f"An error occurred: {str(e)}", ephemeral=True)
     return

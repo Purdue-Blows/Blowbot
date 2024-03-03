@@ -1,5 +1,7 @@
+from models.playlist import Playlist
 from models.songs import Song
-from utils.constants import SERVERS, bot, cur
+from models.users import User
+from utils.constants import SERVERS, bot
 from services import youtube, spotify
 from discord.ext import commands
 from typing import Optional
@@ -33,33 +35,46 @@ async def add_to_playlist(
             song = await youtube.get_song_metadata_from_youtube(song.url)
         song = await spotify.get_song_metadata_from_spotify(song)
     # if the data isn't acquired, throw an error accordingly
-    if song.name is None or song.artist is None:
+    try:
+        await Song.add(song=song)
+    except Exception as e:
         await ctx.respond(
-            "Sorry, we couldn't find the song you were looking for", ephemeral=True
-        )
-        return
-    # if the data is acquired, update the playlist table accordingly
-    result = cur.execute(
-        "INSERT INTO songs (name, artist, url, album, release_date) VALUES (?, ?, ?, ?, ?)",
-        (song.name, song.artist, song.url, song.album, song.release_date),
-    )
-    if not result:
-        await ctx.respond(
-            "Sorry, that song's already in the playlist",
+            "Sorry, that song's already in the database",
             ephemeral=True,
         )
-    # Using the id of the song, add it to the playlist table
-    cur.execute(
-        "INSERT INTO playlist (song_id, song, played, user_id) VALUES (?, ?, ?)",
-        (
-            cur.lastrowid,
-            await youtube.download_song_from_youtube(song.url),
-            False,
-            ctx.author.id,
-        ),
-    )
-    # return a success message as confirmation
-    await ctx.respond(
-        f"{ctx.author.name} added {song.name} to the Purdue Blows playlist"
-    )
-    return
+        return
+    try:
+        user = await User.retrieve_one(name=ctx.author.name)
+        if user is None:
+            user = await User.add(
+                User(
+                    name=ctx.author.name,
+                    jazzle_streak=0,
+                    jazz_trivia_correct=0,
+                    jazz_trivia_incorrect=0,
+                    jazz_trivia_percentage=0,
+                )
+            )
+            if user is None:
+                await ctx.respond(
+                    "An error occurred while adding the user to the database",
+                    ephemeral=True,
+                )
+                return
+        await Playlist.add(
+            Playlist(
+                song=song,
+                audio=await youtube.download_song_from_youtube(song.url),
+                played=False,
+                user=user,
+            )
+        )
+        # return a success message as confirmation
+        await ctx.respond(
+            f"{ctx.author.name} added {song.name} to the Purdue Blows playlist"
+        )
+    except Exception as e:
+        await ctx.respond(
+            "Sorry, an error occurred while adding the song to the playlist",
+            ephemeral=True,
+        )

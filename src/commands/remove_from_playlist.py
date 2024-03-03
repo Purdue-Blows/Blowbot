@@ -1,6 +1,8 @@
+from math import e
+from commands.play import play
 from models.playlist import Playlist
 from models.songs import Song
-from utils.constants import SERVERS, bot, cur
+from utils.constants import SERVERS, bot
 from services import youtube
 from discord.ext import commands
 from typing import Any
@@ -12,23 +14,34 @@ from typing import Any
     guild_ids=SERVERS,
 )
 async def remove_from_playlist(ctx: commands.Context, index: Any) -> None:
-    # retrieve the song from playlist at index index
-    result = cur.execute("SELECT * FROM playlist WHERE id = ?", (index,))
-    result = result.fetchone()
-    song = Song.from_map(result[1])
+    try:
+        # retrieve the song from playlist at index index
+        playlist = await Playlist.retrieve_one(id=index)
+        if playlist is None:
+            await ctx.respond(f"Could not find the playlist instance with id: {index}")
+            return
+    except Exception as e:
+        await ctx.respond(f"Could not find the playlist instance with id: {index}")
+        return
     # check that the song exists in the youtube playlist
-    if not await youtube.check_song_in_playlist(song):
-        await youtube.sync_playlist()
+    if not await youtube.check_song_in_playlist(playlist.song):
+        if not await youtube.sync_playlist(ctx, song=playlist.song):
+            await ctx.respond(
+                "Could not sync the database with the youtube playlist",
+                ephemeral=True,
+            )
+            return
         # Try again
-        result = cur.execute("SELECT * FROM playlist WHERE id = ?", (index,))
-        result = result.fetchone()
-        song = Song.from_map(result[1])
-        if not await youtube.check_song_in_playlist(song):
+        playlist = await Playlist.retrieve_one(id=index)
+        if playlist is None:
+            await ctx.respond(f"Could not find the playlist instance with id: {index}")
+            return
+        if not await youtube.check_song_in_playlist(playlist.song):
             await ctx.respond(
                 "The song you are trying to remove does not exist in the playlist"
             )
             return
-    playlist = Playlist.from_map(result)
+
     # validate that the user_id matches or that the current user is an admin
     if (
         playlist.user.name != ctx.author.name
@@ -38,8 +51,14 @@ async def remove_from_playlist(ctx: commands.Context, index: Any) -> None:
             "You can only remove a song that you added, unless you are an admin"
         )
         return
-    # remove the song from the playlist
-    cur.execute("DELETE FROM playlist WHERE id = ?", (index,))
-    # return a success message as confirmation
-    await ctx.respond(f"{ctx.author.name} removed {song.name} from the playlist")
+    try:
+        # remove the song from the playlist
+        await playlist.remove_song(playlist)
+        await ctx.respond(
+            f"{ctx.author.name} removed {playlist.song.name} from the playlist"
+        )
+    except Exception as e:
+        await ctx.respond(
+            f"An error occurred removing the song from the playlist: {str(e)}"
+        )
     return

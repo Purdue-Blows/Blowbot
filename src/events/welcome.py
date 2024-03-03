@@ -17,3 +17,4 @@ async def on_member_join(member):
 
     # Send the welcome message
     await general_channel.send(welcome_message)
+    return

@@ -12,7 +12,7 @@ from models.songs import Song
 )
 async def get_current_song(ctx: commands.Context) -> None:
     if CURRENT_SONG is not None:
-        await ctx.respond(Song.format_song(CURRENT_SONG), ephemeral=True)
+        await ctx.respond(Song.format_song(CURRENT_SONG.song), ephemeral=True)
     else:
         await ctx.respond("Blowbot is not currently playing anything", ephemeral=True)
     return

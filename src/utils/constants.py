@@ -60,39 +60,36 @@ assert spotify != None
 
 # Initialize database, creating tables if the db doesn't exist
 con = None
-cur = None
 if not os.path.exists(os.path.join(BASE_DIR, DB)):
     con = sqlite3.connect(DB)
     cur = con.cursor()
     cur.execute(
         """
-        CREATE TABLE users(name:TEXT UNIQUE, jazzle_streak:INTEGER, 
+        CREATE TABLE users(id: AUTOINCREMENT INTEGER PRIMARY KEY, name:TEXT UNIQUE, jazzle_streak:INTEGER, 
         jazz_trivia_correct:INTEGER, jazz_trivia_incorrect:INTEGER, 
         jazz_trivia_percentage:REAL)
         """
     )
     cur.execute(
         """
-        CREATE TABLE songs(name:TEXT, artist:TEXT, url:TEXT UNIQUE, album:TEXT | NULL, 
+        CREATE TABLE songs(id: AUTOINCREMENT INTEGER PRIMARY KEY, name:TEXT, artist:TEXT, url:TEXT UNIQUE, album:TEXT | NULL, 
         release_date:TEXT | NULL)
         """
     )
     cur.execute(
         """
-        CREATE TABLE playlist(song_id: INTEGER FOREIGN KEY, song:BLOB, played:BOOLEAN, user_id:INTEGER)
+        CREATE TABLE playlist(id: AUTOINCREMENT INTEGER PRIMARY KEY, song_id: INTEGER FOREIGN KEY, song:BLOB, played:BOOLEAN, user_id:INTEGER)
         """
     )
     cur.execute(
         """
-        CREATE TABLE queue(song_id: INTEGER FOREIGN KEY, song:BLOB, user_id:INTEGER)
+        CREATE TABLE queue(id: AUTOINCREMENT INTEGER PRIMARY KEY, song_id: INTEGER FOREIGN KEY, song:BLOB, user_id:INTEGER)
         """
     )
     cur.execute("PRAGMA foreign_keys = ON")
 else:
     con = sqlite3.connect(DB)
-    cur = con.cursor()
 assert con != None
-assert cur != None
 
 # Initialize yt-dlp
 yt_opts = {
@@ -100,6 +97,13 @@ yt_opts = {
     "extract_audio": True,
     "audio-format": "mp3",
     "audio-quality": 0,
+    "postprocessors": [
+        {
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }
+    ],
 }
 ydl = yt_dlp.YoutubeDL(yt_opts)
 assert ydl != None

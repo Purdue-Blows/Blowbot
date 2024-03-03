@@ -1,5 +1,5 @@
-import sqlite3
-from typing import Dict, List
+from utils.constants import con
+from typing import Dict, List, Optional
 
 
 # A model for a user
@@ -21,7 +21,9 @@ class User:
         jazz_trivia_correct: int,
         jazz_trivia_incorrect: int,
         jazz_trivia_percentage: float,
+        id: Optional[int] = None,
     ):
+        self.id = id
         self.name = name
         self.jazzle_streak = jazzle_streak
         self.jazz_trivia_correct = jazz_trivia_correct
@@ -31,6 +33,7 @@ class User:
     @staticmethod
     def from_map(map: Dict[str, any]) -> "User":  # type: ignore
         return User(
+            id=map["id"],
             name=map["name"],
             jazzle_streak=map["jazzle_streak"],
             jazz_trivia_correct=map["jazz_trivia_correct"],
@@ -40,21 +43,67 @@ class User:
 
     # Adds a user instance to the users table
     @staticmethod
-    async def add(user: "User") -> None:
-        pass
+    async def add(user: "User") -> Optional["User"]:
+        try:
+            cur = con.cursor()
+            result = cur.execute(
+                "INSERT INTO users (name, jazzle_streak, jazz_trivia_correct, jazz_trivia_incorrect, jazz_trivia_percentage) VALUES (?, ?, ?, ?, ?)",
+                (
+                    user.name,
+                    user.jazzle_streak,
+                    user.jazz_trivia_correct,
+                    user.jazz_trivia_incorrect,
+                    user.jazz_trivia_percentage,
+                ),
+            ).fetchone()
+            cur.close()
+            return User.from_map(result[0])
+        except Exception:
+            return None
 
     @staticmethod
-    async def retrieve_many() -> List["User"]:
-        # TODO: Retrieve the values that match the most specified params for the users table, in order
-        # TODO: If the user is not an admin, they only see a limited amount of data
-        pass
-
-    async def retrieve_one(self, played: bool = False, random: bool = True) -> "User":
-        # TODO: Retrieve the current user
-        # TODO: If you are an admin, you can retrieve other users information as well
-        pass
+    async def retrieve_many() -> Optional[List["User"]]:
+        try:
+            cur = con.cursor()
+            result = cur.execute("SELECT * FROM users").fetchall()
+            cur.close()
+            return [User.from_map(row) for row in result]
+        except Exception:
+            return None
 
     @staticmethod
-    async def update(user: "User") -> None:
-        # TODO: updates the corresponding user instance in the database
-        pass
+    async def retrieve_one(id=None, name=None) -> Optional["User"]:
+        try:
+            cur = con.cursor()
+            if id is not None:
+                result = cur.execute("SELECT * FROM users WHERE id=?", (id,)).fetchone()
+            elif name is not None:
+                result = cur.execute(
+                    "SELECT * FROM users WHERE name=?", (name,)
+                ).fetchone()
+            else:
+                raise ValueError("Either id or name must be provided.")
+            cur.close()
+            return User.from_map(result)
+        except Exception:
+            return None
+
+    @staticmethod
+    async def update(user: "User") -> Optional["User"]:
+        try:
+            cur = con.cursor()
+            result = cur.execute(
+                "UPDATE users SET name=?, jazzle_streak=?, jazz_trivia_correct=?, jazz_trivia_incorrect=?, jazz_trivia_percentage=? WHERE id=?",
+                (
+                    user.name,
+                    user.jazzle_streak,
+                    user.jazz_trivia_correct,
+                    user.jazz_trivia_incorrect,
+                    user.jazz_trivia_percentage,
+                    user.id,
+                ),
+            ).fetchone()
+            cur.close()
+            return User.from_map(result[0])
+        except Exception:
+            return None
