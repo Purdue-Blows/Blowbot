@@ -42,12 +42,13 @@ class Song:
     async def add(song: "Song") -> Optional["Song"]:
         try:
             cur = con.cursor()
-            result = cur.execute(
+            cur.execute(
                 "INSERT INTO songs (name, artist, url, album, release_date) VALUES (?, ?, ?, ?, ?)",
                 (song.name, song.artist, song.url, song.album, song.release_date),
             ).fetchone()
+            con.commit()
             cur.close()
-            return Song.from_map(result[0])
+            return song
         except Exception as e:
             print(f"Error occurred while adding song: {e}")
             return None
@@ -147,6 +148,7 @@ class Song:
                     song.id,
                 ),
             )
+            con.commit()
             cur.close()
             return song
         except Exception as e:
@@ -154,5 +156,8 @@ class Song:
             return None
 
     @staticmethod
-    async def format_song(song: "Song") -> str:
+    def format_song(song: "Song") -> str:
         return f"Name: {song.name}\nArtist: {song.artist}\nURL: {song.url}\nAlbum: {song.album}\nRelease Date: {song.release_date}"
+
+    def to_string(self) -> str:
+        return f"Name: {self.name}\nArtist: {self.artist}\nURL: {self.url}\nAlbum: {self.album}\nRelease Date: {self.release_date}"

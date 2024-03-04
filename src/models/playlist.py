@@ -64,6 +64,7 @@ class Playlist:
         except Exception as e:
             return None
         finally:
+            con.commit()
             cur.close()
 
     @staticmethod
@@ -88,6 +89,7 @@ class Playlist:
     ) -> Optional["Playlist"]:
         try:
             cur = con.cursor()
+            print("Creating a cursor")
             if id:
                 cur.execute("SELECT * FROM playlist WHERE id=?", (id,))
             elif played:
@@ -95,8 +97,11 @@ class Playlist:
             elif random:
                 cur.execute("SELECT * FROM playlist ORDER BY RANDOM() LIMIT 1")
             else:
+                print("Returning none why?")
                 return None
+            print("Ran the executes...")
             row = cur.fetchone()
+            print("Row is " + str(row))  # Convert row to string
             if row:
                 playlist = Playlist.from_map(row)
                 return playlist
@@ -149,3 +154,15 @@ class Playlist:
             return None
         finally:
             cur.close()
+
+    def to_string(self):
+        return (
+            "Id: "
+            + str(self.id)
+            + "\n Song: "
+            + self.song.to_string()
+            + "\n Played: "
+            + str(self.played)
+            + "\n User:"
+            + self.user.to_string()
+        )

@@ -4,6 +4,7 @@ from utils.constants import bot
 from discord import VoiceChannel
 from discord import Member
 from discord import User
+import discord
 from models.playlist import Playlist
 from models.queue import Queue
 
@@ -19,21 +20,18 @@ async def is_bot_connected() -> bool:
 
 
 # Attempts to connect the song to a VC vc
-async def connect(id: str) -> None:
-    vc = bot.get_channel(id)
-    print(vc)
-    vc.connect()
-    # bot.voice_clients = vc
+async def connect(channel: VoiceChannel) -> None:
+    await channel.connect()  # type: ignore
     return
 
 
 # Attempts to connect the song to a VC vc
-async def move_to(id: str) -> None:
-    vc = bot.get_channel(id)
-    print(vc)
-    vc.connect()
-    # bot.voice_clients.move_to(vc)
-    return
+async def move_to(channel: VoiceChannel) -> None:
+    voice_client = discord.utils.get(bot.voice_clients, guild=channel.guild)
+    if voice_client:
+        await voice_client.move_to(channel)
+    else:
+        print("Bot is not currently in a voice channel.")
 
 
 # Attempts to disconnect the bot from voice
@@ -51,11 +49,8 @@ async def is_admin(account: Union[User, Member]) -> bool:
 # Play the current song
 async def play_song() -> None:
     global CURRENT_SONG
-    if (
-        CURRENT_SONG is not None
-        and (isinstance(CURRENT_SONG, Playlist) or isinstance(CURRENT_SONG, Queue))
-        and CURRENT_SONG.audio is not None
-    ):
+    if CURRENT_SONG is not None and CURRENT_SONG.audio is not None:
+        print("Playing a song")
         bot.voice_clients.play(CURRENT_SONG.audio)
 
 

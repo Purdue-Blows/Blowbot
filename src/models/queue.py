@@ -47,6 +47,7 @@ class Queue:
         except Exception as e:
             return None
         finally:
+            con.commit()
             cur.close()
 
     @staticmethod
@@ -140,6 +141,7 @@ class Queue:
         except Exception as e:
             pass
         finally:
+            con.commit()
             cur.close()
 
     # Removes a song from the queue table (shifting all the songs up 1)
@@ -170,4 +172,15 @@ class Queue:
         except Exception as e:
             return None
         finally:
+            con.commit()
             cur.close()
+
+    def to_string(self):
+        return (
+            "Id: "
+            + str(self.id)
+            + "\n Song: "
+            + self.song.to_string()
+            + "\n User:"
+            + self.user.to_string()
+        )

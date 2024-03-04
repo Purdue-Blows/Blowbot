@@ -1,9 +1,8 @@
-from dis import disco
-from tkinter import CURRENT
 from models.playlist import Playlist
-from slash_commands.play import play
+from services.youtube import sync_playlist
 from utils.constants import (
     BOT_DEBUGGING_SERVER_CHANNEL_IDS,
+    BOT_DEBUGGING_SERVER_ID,
     DISCORD_TOKEN,
     SERVERS,
     PURDUE_BLOWS_CHANNEL_IDS,
@@ -36,27 +35,34 @@ from services.discord import (
     move_to,
     play_song,
 )
+from services import youtube
 from models.queue import Queue
 from utils.state import CURRENT_SONG
+import discord
 
 
 # Start playing from the playlist on_ready
 @bot.event
 async def on_ready():
     global CURRENT_SONG
+    guild = bot.get_guild(BOT_DEBUGGING_SERVER_ID)
+    assert guild != None
+    channel = guild.get_channel(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
+    assert channel != None
     # Check if the bot is currently playing music
     if not await is_bot_playing():
         # Get the voice channel to join
-        if not await is_bot_connected():
-            await connect(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
+        if await is_bot_connected():
+            # Now you can pass the 'channel' instance to the desired function or method
+            await connect(channel)
         else:
-            await move_to(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
-
+            await move_to(channel)
+            await connect(channel)
         # Initialize the current song
-        CURRENT_SONG = await Playlist.retrieve_one()
+        # CURRENT_SONG = await Playlist.retrieve_one()
 
-        # Start streaming from the playlist
-        await play_song()
+        # # Start streaming from the playlist
+        # await play_song()
 
 
 @bot.event

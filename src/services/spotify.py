@@ -5,11 +5,17 @@ from utils.constants import spotify
 # Attempts to retrieve the song metadata from spotify given the parameters
 async def get_song_metadata_from_spotify(song: Song) -> Song:
     # Check which values are present (not None)
-    if song.name is not None and song.artist is not None:
+    print("SPOTIFY")
+    if song.name is not None:
         # Use the spotipy API to attempt to update the values
-        results = spotify.search(
-            q=f"track:{song.name} artist:{song.artist}", type="track", limit=1
-        )
+        if song.artist is not None:
+            results = spotify.search(
+                q=f"track:{song.name} artist:{song.artist}", type="track", limit=1
+            )
+        else:
+            results = spotify.search(q=f"track:{song.name}", type="track", limit=1)
+        print("spotify results")
+        print(results)
         if results["tracks"]["items"]:
             track = results["tracks"]["items"][0]
             song.name = track["name"]

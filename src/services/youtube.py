@@ -18,7 +18,10 @@ async def get_song_metadata_from_youtube(song: Song) -> Song:
     # Return a new song object with any None fields updated appropriately
     if song.name is None:
         song.name = info_dict.get("title")
-    # The youtube api mostly is just effective for getting the title...
+
+    if song.artist is None:
+        if info_dict.get("artist") != None:
+            song.artist = info_dict.get("artist")
 
     return song
 

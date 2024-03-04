@@ -46,7 +46,7 @@ class User:
     async def add(user: "User") -> Optional["User"]:
         try:
             cur = con.cursor()
-            result = cur.execute(
+            cur.execute(
                 "INSERT INTO users (name, jazzle_streak, jazz_trivia_correct, jazz_trivia_incorrect, jazz_trivia_percentage) VALUES (?, ?, ?, ?, ?)",
                 (
                     user.name,
@@ -56,8 +56,9 @@ class User:
                     user.jazz_trivia_percentage,
                 ),
             ).fetchone()
+            con.commit()
             cur.close()
-            return User.from_map(result[0])
+            return user
         except Exception:
             return None
 
@@ -103,7 +104,24 @@ class User:
                     user.id,
                 ),
             ).fetchone()
+            con.commit()
             cur.close()
             return User.from_map(result[0])
         except Exception:
             return None
+
+    def to_string(self):
+        return (
+            "Id: "
+            + str(self.id)
+            + "\n Name: "
+            + self.name
+            + "\n Jazzle Streak: "
+            + str(self.jazzle_streak)
+            + "\n Jazz Trivia Correct:"
+            + str(self.jazz_trivia_correct)
+            + "\n Jazz Trivia Incorrect:"
+            + str(self.jazz_trivia_incorrect)
+            + "\n Jazz Trivia Percentage:"
+            + str(self.jazz_trivia_percentage)
+        )

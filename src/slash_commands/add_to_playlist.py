@@ -1,3 +1,4 @@
+from tkinter import NO
 from models.playlist import Playlist
 from models.songs import Song
 from models.users import User
@@ -22,7 +23,7 @@ async def add_to_playlist(
     release_date: Optional[str] = None,
 ) -> None:
     # validate that url is a youtube url
-    if not youtube.validate_youtube_url(url):
+    if not await youtube.validate_youtube_url(url):
         await ctx.respond("Url must be a valid YouTube url", ephemeral=True)
         return
     song = Song(
@@ -33,9 +34,24 @@ async def add_to_playlist(
         # Get any data possible from youtube
         if name is None or artist is None:
             song = await youtube.get_song_metadata_from_youtube(song)
+            print(song.to_string())
         song = await spotify.get_song_metadata_from_spotify(song)
+    print(song.to_string())
     # if the data isn't acquired, throw an error accordingly
+    if song.name is None:
+        await ctx.respond(
+            "Sorry, the name of the song couldn't be determined; if you want to add the song, please provide the name",
+            ephemeral=True,
+        )
+        return
+    if song.artist is None:
+        await ctx.respond(
+            "Sorry, the name of the artist couldn't be determined; if you want to add the song, please provide the name",
+            ephemeral=True,
+        )
+        return
     try:
+        print("Trying to add a song")
         await Song.add(song=song)
     except Exception as e:
         await ctx.respond(

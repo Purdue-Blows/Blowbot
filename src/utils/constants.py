@@ -14,9 +14,9 @@ if not load_dotenv(os.path.join(BASE_DIR, ".env")):
     raise Exception("Could not parse the .env file")
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-CLIENT_ID = os.getenv("CLIENT_ID")
-PURDUE_BLOWS_SERVER_ID = os.getenv("PURDUE_BLOWS_SERVER_ID")
-BOT_DEBUGGING_SERVER_ID = os.getenv("BOT_DEBUGGING_SERVER_ID")
+CLIENT_ID: int = int(os.getenv("CLIENT_ID"))  # type: ignore
+PURDUE_BLOWS_SERVER_ID: int = int(os.getenv("PURDUE_BLOWS_SERVER_ID"))  # type: ignore
+BOT_DEBUGGING_SERVER_ID: int = int(os.getenv("BOT_DEBUGGING_SERVER_ID"))  # type: ignore
 SERVERS = [PURDUE_BLOWS_SERVER_ID, BOT_DEBUGGING_SERVER_ID]
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DATABASE_NAME = os.getenv("MONGO_DATABASE_NAME")
@@ -26,14 +26,15 @@ SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
 MAX_MESSAGE_LENGTH = 2000
 
 PURDUE_BLOWS_CHANNEL_IDS = {
-    "general": "1148646209586745391",
-    "commands": "1210003092356210779",
-    "vibe": "1212457675087024148",
+    "general": 1148646209586745391,
+    "commands": 1210003092356210779,
+    "vibe": 1212457675087024148,
 }
 
 BOT_DEBUGGING_SERVER_CHANNEL_IDS = {
-    "general": "909075276774907947",
-    "general_voice": "909075276774907948",
+    "general": 909075276774907947,
+    "general_voice": 909075276774907948,
+    "general_voice_2": 1214048071034474547,
 }
 
 # PURDUE_BLOWS_PLAYLIST_URL = "https://open.spotify.com/playlist/6MPc4BFOUT9mUIz0G6ME4B?si=z4XGO1ELRLqfS3TyrmbiHA&pt_success=1&nd=1&dlsi=11e24dc164584f44"
@@ -97,6 +98,7 @@ assert con != None
 yt_opts = {
     "best-audio": True,
     "extract_audio": True,
+    "noplaylist": True,
     "audio-format": "mp3",
     "audio-quality": 0,
     "postprocessors": [
@@ -104,7 +106,7 @@ yt_opts = {
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
             "preferredquality": "192",
-        }
+        },
     ],
 }
 ydl = yt_dlp.YoutubeDL(yt_opts)
