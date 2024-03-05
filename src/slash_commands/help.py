@@ -2,15 +2,7 @@ from typing import Any
 from discord.ext import commands
 from utils.constants import SERVERS, bot
 
-
-@bot.slash_command(
-    name="help",
-    description="Get some advice on Blowbot and how to best utilize it",
-    guild_ids=SERVERS,
-)
-async def help(ctx: commands.Context) -> Any:
-    await ctx.respond(
-        """
+HELP_MESSAGE = """
 # Blowbot
 The official Purdue Blows Discord Bot, built by Purdue Jazz for Purdue Jazz!
 ## Commands
@@ -30,6 +22,13 @@ The official Purdue Blows Discord Bot, built by Purdue Jazz for Purdue Jazz!
 - /remove_from_queue (index): Remove a song that you added to the queue (or a song in general if you are an admin)
 - /skip: Skip the current song
 - /view_queue: View the current queue
-""",
-        ephemeral=True,
-    )
+"""
+
+
+@bot.slash_command(
+    name="help",
+    description="Get some advice on Blowbot and how to best utilize it",
+    guild_ids=SERVERS,
+)
+async def help(ctx: commands.Context) -> Any:
+    await ctx.respond(HELP_MESSAGE, ephemeral=True)

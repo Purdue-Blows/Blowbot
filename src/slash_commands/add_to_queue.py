@@ -3,8 +3,15 @@ from typing import Any, Optional, Dict
 from models.queue import Queue
 from models.users import User
 from utils.constants import SERVERS, bot, con
-from models.songs import Song
 from services import youtube, spotify
+from models.songs import Song
+
+# Define constant string literals
+URL_ERROR_MESSAGE = "Url must be a valid YouTube url"
+DATABASE_ERROR_MESSAGE = "Sorry, that song's already in the database"
+USER_ERROR_MESSAGE = "An error occurred while adding the user to the database"
+GENERAL_ERROR_MESSAGE = "Sorry, an error occurred while adding the song to the queue"
+SUCCESS_MESSAGE = "{} added {} to the queue!"
 
 
 # Adds a song to the queue
@@ -21,7 +28,7 @@ async def add_to_queue(
 ) -> None:
     # validate that url is a youtube url
     if not youtube.validate_youtube_url(url):
-        await ctx.respond("Url must be a valid YouTube url", ephemeral=True)
+        await ctx.respond(URL_ERROR_MESSAGE, ephemeral=True)
         return
     song: Song = Song(
         name=name, artist=artist, url=url, album=album, release_date=release_date
@@ -36,10 +43,7 @@ async def add_to_queue(
     try:
         await Song.add(song=song)
     except Exception as e:
-        await ctx.respond(
-            "Sorry, that song's already in the database",
-            ephemeral=True,
-        )
+        await ctx.respond(DATABASE_ERROR_MESSAGE, ephemeral=True)
         return
     try:
         # Using the id of the song, add it to the queue table
@@ -55,10 +59,7 @@ async def add_to_queue(
                 )
             )
             if user is None:
-                await ctx.respond(
-                    "An error occurred while adding the user to the database",
-                    ephemeral=True,
-                )
+                await ctx.respond(USER_ERROR_MESSAGE, ephemeral=True)
                 return
         await Queue.add(
             Queue(
@@ -68,7 +69,7 @@ async def add_to_queue(
             )
         )
         # return a success message as confirmation
-        await ctx.respond(f"{ctx.author.name} added {song.name} to the queue!")
+        await ctx.respond(SUCCESS_MESSAGE.format(ctx.author.name, song.name))
     except Exception as e:
-        await ctx.respond(f"An error occurred: {str(e)}", ephemeral=True)
+        await ctx.respond(GENERAL_ERROR_MESSAGE, ephemeral=True)
     return

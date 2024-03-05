@@ -1,6 +1,9 @@
 from typing import Any
 from discord.ext import commands
-from utils.constants import SERVERS, bot, con
+from utils.constants import SERVERS, bot
+
+
+RESPONSE_MESSAGE = "Sorry, this command hasn't been implemented yet!"
 
 
 @bot.slash_command(
@@ -9,6 +12,4 @@ from utils.constants import SERVERS, bot, con
     guild_ids=SERVERS,
 )
 async def profile(ctx: commands.Context) -> Any:
-    await ctx.respond(
-        "Sorry, this command hasn't been implemented yet!", ephemeral=True
-    )
+    await ctx.respond(RESPONSE_MESSAGE, ephemeral=True)

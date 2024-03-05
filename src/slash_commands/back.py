@@ -5,6 +5,10 @@ from services.discord import play_song
 from discord.ext import commands
 
 
+BACK_NO_PREVIOUS_SONG_MESSAGE = "Could not go back to the previous song because there IS no previous song in the queue"
+BACK_SUCCESS_MESSAGE = "Playing the previous song again at {ctx.author.name}'s request"
+
+
 @bot.slash_command(
     name="back",
     description="Relisten to the previous song (if it exists)",
@@ -17,9 +21,7 @@ async def back(ctx: commands.Context) -> None:
     QUEUE_NUM -= 1
     if QUEUE_NUM < 0:
         QUEUE_NUM = 0
-        await ctx.respond(
-            f"Could not go back to the previous song because there IS no previos song in the queue"
-        )
+        await ctx.respond(BACK_NO_PREVIOUS_SONG_MESSAGE)
         return
     CURRENT_SONG = Queue.retrieve_one(QUEUE_NUM)
 
@@ -27,4 +29,4 @@ async def back(ctx: commands.Context) -> None:
     await play_song()
 
     # return a success message as confirmation
-    await ctx.respond(f"Playing the previous song again at {ctx.author.name}'s request")
+    await ctx.respond(BACK_SUCCESS_MESSAGE)

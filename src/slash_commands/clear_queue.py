@@ -7,6 +7,10 @@ from services import discord
 from models.queue import Queue
 
 
+QUEUE_CLEARED_MESSAGE = "Queue was cleared by {author}"
+ADMIN_ONLY_MESSAGE = "Only admins can clear the queue"
+
+
 # Clears the bots queue
 # Can only be run if the caller is an admin in the server
 @bot.slash_command(
@@ -20,8 +24,8 @@ async def clear_queue(ctx: commands.Context) -> None:
         # clear the queue
         await Queue.clear_queue()
         # return a success message as confirmation
-        await ctx.respond(f"Queue was cleared by {ctx.author.name}")
+        await ctx.respond(QUEUE_CLEARED_MESSAGE.format(author=ctx.author.name))
     # can't clear queue if not an admin
     else:
-        await ctx.respond(f"Only admins can clear the queue", ephemeral=True)
+        await ctx.respond(ADMIN_ONLY_MESSAGE, ephemeral=True)
     return

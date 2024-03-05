@@ -9,6 +9,9 @@ from utils.functions import send_message_in_parts
 
 # View the current queue
 # Displays num_to_display songs
+QUEUE_EMPTY_MESSAGE = "The queue is empty"
+
+
 @bot.slash_command(
     name="view_queue", description="View the current queue", guild_ids=SERVERS
 )
@@ -19,11 +22,11 @@ async def view_queue(ctx: commands.Context, num_to_display: int = 3) -> None:
         queue = await Queue.retrieve_one(i)
         if queue is None:
             break
-        formatted_song = await Song.format_song(queue.song)
+        formatted_song = Song.format_song(queue.song)
         if formatted_song is not None:
             message += formatted_song + "\n"
     if message == "":
-        await ctx.respond("The queue is empty", ephemeral=True)
+        await ctx.respond(QUEUE_EMPTY_MESSAGE, ephemeral=True)
         return
     # check that the message isn't too long; if it is, split it up into multiple messages
     await send_message_in_parts(ctx, message)

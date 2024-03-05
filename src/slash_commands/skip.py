@@ -6,6 +6,16 @@ from discord.ext import commands
 from typing import Optional
 
 
+# Define constants for response messages
+NO_NEXT_SONG_MESSAGE = (
+    "Could not skip to the next song because there IS no next song in the queue"
+)
+PLAYING_PREVIOUS_SONG_MESSAGE = (
+    "Playing the previous song again at {ctx.author.name}'s request"
+)
+SKIP_ERROR_MESSAGE = "Sorry, an error occurred while trying to skip the song"
+
+
 @bot.slash_command(
     name="skip",
     description="Skip the current song",
@@ -22,9 +32,7 @@ async def skip(ctx: commands.Context):
         queue_count = cur.fetchone()[0]
         if QUEUE_NUM > queue_count:
             QUEUE_NUM -= 1
-            await ctx.respond(
-                f"Could not skip to the next song because there IS no next song in the queue"
-            )
+            await ctx.respond(NO_NEXT_SONG_MESSAGE)
             return
 
         # Pause the current song
@@ -37,12 +45,10 @@ async def skip(ctx: commands.Context):
         await play_song()
 
         # return a success message as confirmation
-        await ctx.respond(
-            f"Playing the previous song again at {ctx.author.name}'s request"
-        )
+        await ctx.respond(PLAYING_PREVIOUS_SONG_MESSAGE)
         return
     except Exception as e:
-        await ctx.respond(f"An error occurred: {str(e)}")
+        await ctx.respond(SKIP_ERROR_MESSAGE.format(str(e)))
     finally:
         if cur:
             cur.close()
