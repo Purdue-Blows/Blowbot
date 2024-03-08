@@ -1,8 +1,9 @@
 from models.playlist import Playlist
 from models.songs import Song
 from models.users import User
-from utils.constants import SERVERS, bot
-from services import youtube, spotify
+from services import spotify_service
+from services import youtube_service
+from utils.constants import DB_CLIENT, SERVERS, bot
 from discord.ext import commands
 from typing import Optional
 
@@ -18,10 +19,11 @@ SONG_ADD_ERROR_MESSAGE = (
     "Sorry, an error occurred while adding the song to the playlist"
 )
 SUCCESS_MESSAGE = "{author_name} added {song_name} to the Purdue Blows playlist"
+NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
 
 
 # Add a song to the Purdue Blows playlist
-@bot.slash_command(
+@bot.command(
     name="add_to_playlist",
     description="Adds a link to the Purdue Blows playlist",
     guild_ids=SERVERS,
@@ -29,14 +31,18 @@ SUCCESS_MESSAGE = "{author_name} added {song_name} to the Purdue Blows playlist"
 async def add_to_playlist(
     ctx: commands.Context,
     url: str,
+    playlist_name: Optional[str] = None,
     name: Optional[str] = None,
     artist: Optional[str] = None,
     album: Optional[str] = None,
     release_date: Optional[str] = None,
 ) -> None:
+    if ctx.guild is None:
+        raise Exception(NO_GUILD_MESSAGE)
+    db = DB_CLIENT[str(ctx.guild.id)]
     # validate that url is a youtube url
-    if not await youtube.validate_youtube_url(url):
-        await ctx.respond(URL_ERROR_MESSAGE, ephemeral=True)
+    if not await youtube_service.validate_youtube_url(url):
+        await ctx.send(URL_ERROR_MESSAGE, ephemeral=True)
         return
     song = Song(
         name=name, artist=artist, url=url, album=album, release_date=release_date
@@ -44,65 +50,68 @@ async def add_to_playlist(
     # if a parameter is None, attempt to search the spotify api for it
     if name is None or artist is None or album is None or release_date is None:
         # Get any data possible from youtube
-        if name is None or artist is None:
-            song = await youtube.get_song_metadata_from_youtube(song)
-            print(song.to_string())
-        song = await spotify.get_song_metadata_from_spotify(song)
+        song = await youtube_service.get_song_metadata_from_youtube(song)
+        print(song.to_string())
+        # Get any data possible from spotify
+        if name is None or artist is None or album is None or release_date is None:
+            song = await spotify_service.get_song_metadata_from_spotify(song)
     print(song.to_string())
     # if the data isn't acquired, throw an error accordingly
     if song.name is None and song.artist is None:
-        await ctx.respond(
+        await ctx.send(
             NAME_AND_ARTIST_ERROR_MESSAGE,
             ephemeral=True,
         )
         return
     if song.name is None:
-        await ctx.respond(NAME_ERROR_MESSAGE, ephemeral=True)
+        await ctx.send(NAME_ERROR_MESSAGE, ephemeral=True)
         return
     if song.artist is None:
-        await ctx.respond(ARTIST_ERROR_MESSAGE, ephemeral=True)
+        await ctx.send(ARTIST_ERROR_MESSAGE, ephemeral=True)
         return
     try:
         print("Trying to add a song")
         await Song.add(song=song)
     except Exception as e:
-        await ctx.respond(SONG_EXISTS_ERROR_MESSAGE, ephemeral=True)
+        await ctx.send(SONG_EXISTS_ERROR_MESSAGE, ephemeral=True)
         return
     try:
-        user = await User.retrieve_one(name=ctx.author.name)
+        user = await User.retrieve_one(db, name=ctx.author.name)
     except Exception as e:
-        await ctx.respond(USER_RETRIEVAL_ERROR_MESSAGE, ephemeral=True)
+        await ctx.send(USER_RETRIEVAL_ERROR_MESSAGE, ephemeral=True)
         return
     try:
         if user is None:
             user = await User.add(
+                db,
                 User(
                     name=ctx.author.name,
                     jazzle_streak=0,
                     jazz_trivia_correct=0,
                     jazz_trivia_incorrect=0,
                     jazz_trivia_percentage=0,
-                )
+                ),
             )
             if user is None:
-                await ctx.respond(USER_ADD_ERROR_MESSAGE, ephemeral=True)
+                await ctx.send(USER_ADD_ERROR_MESSAGE, ephemeral=True)
                 return
     except Exception as e:
-        await ctx.respond(USER_ADD_ERROR_MESSAGE, ephemeral=True)
+        await ctx.send(USER_ADD_ERROR_MESSAGE, ephemeral=True)
         return
     try:
         await Playlist.add(
+            db,
             Playlist(
                 song=song,
-                audio=await youtube.download_song_from_youtube(song.url),
+                audio=await youtube_service.download_song_from_youtube(song.url),
                 played=False,
                 user=user,
-            )
+            ),
         )
         # return a success message as confirmation
-        await ctx.respond(
+        await ctx.send(
             SUCCESS_MESSAGE.format(author_name=ctx.author.name, song_name=song.name)
         )
     except Exception as e:
-        await ctx.respond(SONG_ADD_ERROR_MESSAGE, ephemeral=True)
+        await ctx.send(SONG_ADD_ERROR_MESSAGE, ephemeral=True)
     return

@@ -16,11 +16,12 @@ async def get_song_metadata_from_spotify(song: Song) -> Song:
             results = spotify.search(q=f"track:{song.name}", type="track", limit=1)
         print("spotify results")
         print(results)
-        if results["tracks"]["items"]:
-            track = results["tracks"]["items"][0]
-            song.name = track["name"]
-            song.artist = track["artists"][0]["name"]
-            song.album = track["album"]["name"]
-            song.release_date = track["album"]["release_date"]
+        if results != None:
+            if results["tracks"]["items"]:
+                track = results["tracks"]["items"][0]
+                song.name = track["name"]
+                song.artist = track["artists"][0]["name"]
+                song.album = track["album"]["name"]
+                song.release_date = track["album"]["release_date"]
     # Return the updated song
     return song

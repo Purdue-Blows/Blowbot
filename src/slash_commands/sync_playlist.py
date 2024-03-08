@@ -11,11 +11,11 @@ NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
 
 
 @bot.command(
-    name="get_current_song",
-    description="Get the song that Blowbot is currently playing",
+    name="sync_playlist",
+    description="Syncs the playlist with the YT playlist if you are an admin, REMOVES RANDOMIZATION",
     guild_ids=SERVERS,
 )
-async def get_current_song(ctx: commands.Context) -> None:
+async def sync_playlist_command(ctx: commands.Context) -> None:
     if ctx.guild is None:
         raise Exception(NO_GUILD_MESSAGE)
     db = DB_CLIENT[str(ctx.guild.id)]

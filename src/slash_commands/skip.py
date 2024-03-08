@@ -1,9 +1,8 @@
 from models.queue import Queue
-from services.discord import pause, play_song
-from utils.constants import SERVERS, bot, con
+from discord_service import pause, play_song
+from utils.constants import DB_CLIENT, SERVERS, bot, db
 from utils.state import QUEUE_NUM, CURRENT_SONG
 from discord.ext import commands
-from typing import Optional
 
 
 # Define constants for response messages
@@ -14,25 +13,27 @@ PLAYING_PREVIOUS_SONG_MESSAGE = (
     "Playing the previous song again at {ctx.author.name}'s request"
 )
 SKIP_ERROR_MESSAGE = "Sorry, an error occurred while trying to skip the song"
+NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
 
 
-@bot.slash_command(
+@bot.command(
     name="skip",
     description="Skip the current song",
     guild_ids=SERVERS,
 )
 async def skip(ctx: commands.Context):
+    if ctx.guild is None:
+        raise Exception(NO_GUILD_MESSAGE)
+    db = DB_CLIENT[str(ctx.guild.id)]
     global QUEUE_NUM
     global CURRENT_SONG
     # update queue_num and current_song accordingly and the db
     QUEUE_NUM += 1
     try:
-        cur = con.cursor()
-        cur.execute("SELECT COUNT(*) FROM queue")
-        queue_count = cur.fetchone()[0]
+        queue_count = await db.queue.count_documents({})
         if QUEUE_NUM > queue_count:
             QUEUE_NUM -= 1
-            await ctx.respond(NO_NEXT_SONG_MESSAGE)
+            await ctx.send(NO_NEXT_SONG_MESSAGE)
             return
 
         # Pause the current song
@@ -45,10 +46,7 @@ async def skip(ctx: commands.Context):
         await play_song()
 
         # return a success message as confirmation
-        await ctx.respond(PLAYING_PREVIOUS_SONG_MESSAGE)
+        await ctx.send(PLAYING_PREVIOUS_SONG_MESSAGE)
         return
     except Exception as e:
-        await ctx.respond(SKIP_ERROR_MESSAGE.format(str(e)))
-    finally:
-        if cur:
-            cur.close()
+        await ctx.send(SKIP_ERROR_MESSAGE.format(str(e)))

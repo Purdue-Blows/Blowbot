@@ -1,14 +1,25 @@
+import asyncio
+from http import client
+from math import e
+from os import name
 from models.playlist import Playlist
-from services.youtube import sync_playlist
+from models.songs import Song
 from utils.constants import (
     BOT_DEBUGGING_SERVER_CHANNEL_IDS,
     BOT_DEBUGGING_SERVER_ID,
     DISCORD_TOKEN,
+    MONGO_HOST,
+    MONGO_PORT,
     SERVERS,
     PURDUE_BLOWS_CHANNEL_IDS,
-    PURDUE_BLOWS_PLAYLIST_URL,
     bot,
+    DB_CLIENT,
+    initialize_collections,
+    mongod,
 )
+
+# For discord audio
+import nacl
 
 # Register commands
 from slash_commands import (
@@ -26,53 +37,89 @@ from slash_commands import (
 )
 
 # Register events
-from events import welcome
-from services.discord import (
+from services.discord_service import (
     is_bot_playing,
     is_bot_connected,
-    connect,
     disconnect,
     move_to,
     play_song,
 )
-from services import youtube
 from models.queue import Queue
-from utils.state import CURRENT_SONG
 import discord
+
+from services.youtube_service import sync_playlist
+
+VOICE_CONNECT_ERROR_MESSAGE = "Could not connect to voice"
 
 
 # Start playing from the playlist on_ready
 @bot.event
 async def on_ready():
-    global CURRENT_SONG
+    # Initialize databases
+    for server in SERVERS:
+        db = DB_CLIENT[str(server)]
+        await initialize_collections(db)
+        await sync_playlist(db)
+    print("Collections initialized")
+
     guild = bot.get_guild(BOT_DEBUGGING_SERVER_ID)
     assert guild != None
-    channel = guild.get_channel(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])
+    channel: discord.VoiceChannel = guild.get_channel(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])  # type: ignore
     assert channel != None
     # Check if the bot is currently playing music
     if not await is_bot_playing():
         # Get the voice channel to join
-        if await is_bot_connected():
-            # Now you can pass the 'channel' instance to the desired function or method
-            await connect(channel)
-        else:
-            await move_to(channel)
-            await connect(channel)
+        voice_client = await move_to(channel)
+        if DB_CLIENT == None:
+            raise Exception(VOICE_CONNECT_ERROR_MESSAGE)
+        # Sync playlist if not synced
+        # await sync_playlist()
+        # print("Attempting to add a test song")
+        # await Song.add(
+        #     Song(
+        #         name="test",
+        #         artist="test",
+        #         url="test",
+        #         album="test",
+        #         release_date="test",
+        #     )
+        # )
+        print("Playlist synced")
         # Initialize the current song
-        # CURRENT_SONG = await Playlist.retrieve_one()
-
-        # # Start streaming from the playlist
-        # await play_song()
+        try:
+            await Playlist.shuffle(db)
+            playlist = await Playlist.retrieve_one(db)
+            if playlist != None:
+                song = await Song.retrieve_one(id=playlist.song.id)
+                if not song:
+                    raise Exception("Audio is None")
+                if song.audio is None:
+                    raise Exception("Audio is None")
+                await play_song(song.audio)
+                print("Streaming!")
+        except Exception as e:
+            return
 
 
 @bot.event
 async def on_disconnect():
-    # Clear the queue
-    await Queue.clear_queue()
+    # Clear the queue for all servers
+    for server in SERVERS:
+        db = DB_CLIENT[str(server)]
+        await Queue.clear_queue(db)
+
+    # Cleanly shutdown the db
+    DB_CLIENT.close()
+    mongod.kill()
 
     # Disconnect from vc
     if await is_bot_connected():
         await disconnect()
 
 
-bot.run(DISCORD_TOKEN)
+try:
+    bot.run(DISCORD_TOKEN)  # type: ignore
+except KeyboardInterrupt:
+    print("Should be shutting down mongod")
+    # Clear the queue
+    asyncio.run(on_disconnect())

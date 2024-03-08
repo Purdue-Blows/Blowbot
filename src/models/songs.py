@@ -1,5 +1,8 @@
-from utils.constants import con
+from enum import Enum
 from typing import Optional, List, Union
+from models.model_fields import SongFields
+
+from utils.constants import DB_CLIENT
 
 
 class Song:
@@ -7,6 +10,7 @@ class Song:
         self,
         url: str,
         name: Optional[str] = None,
+        audio: Optional[bytes] = None,
         artist: Optional[str] = None,
         album: Optional[str] = None,
         release_date: Optional[str] = None,
@@ -15,43 +19,50 @@ class Song:
         self.id = id
         self.name = name
         self.artist = artist
-        cur = con.cursor()
-        cur.execute("SELECT * FROM songs WHERE url = ?", (url,))
-        result = cur.fetchone()
-        cur.close()
-        if result is not None:
-            raise ValueError("URL already exists in the database")
         self.url = url
         self.album = album
         self.release_date = release_date
-        pass
+        self.audio = audio
+
+    @staticmethod
+    def log_doc(song: dict) -> None:
+        print("SONG DOC")
+        print(f"Id: {song[SongFields.ID.name]}")
+        print(f"Name: {song[SongFields.NAME.name]}")
+        print(f"Artist: {song[SongFields.ARTIST.name]}")
+        print(f"Audio: {str(song[SongFields.AUDIO.name])[0:20]}")
+        print(f"URL: {song[SongFields.URL.name]}")
+        print(f"Album: {song[SongFields.ALBUM.name]}")
+        print(f"Release Date: {song[SongFields.RELEASE_DATE.name]}")
 
     @staticmethod
     def from_map(map: dict) -> "Song":
         return Song(
-            map["id"],
-            map["name"],
-            map["artist"],
-            map["url"],
-            map["album"],
-            map["release_date"],
+            map[SongFields.ID.name],
+            map[SongFields.NAME.name],
+            map[SongFields.ARTIST.name],
+            map[SongFields.URL.name],
+            map[SongFields.ALBUM.name],
+            map[SongFields.RELEASE_DATE.name],
+            map[SongFields.AUDIO.name],
         )
 
     # Add the song to the database
     @staticmethod
     async def add(song: "Song") -> Optional["Song"]:
-        try:
-            cur = con.cursor()
-            cur.execute(
-                "INSERT INTO songs (name, artist, url, album, release_date) VALUES (?, ?, ?, ?, ?)",
-                (song.name, song.artist, song.url, song.album, song.release_date),
-            ).fetchone()
-            con.commit()
-            cur.close()
-            return song
-        except Exception as e:
-            print(f"Error occurred while adding song: {e}")
-            return None
+        collection = DB_CLIENT.songs.songs
+        result = await collection.insert_one(
+            {
+                SongFields.NAME.name: song.name,
+                SongFields.ARTIST.name: song.artist,
+                SongFields.URL.name: song.url,
+                SongFields.AUDIO.name: song.audio,
+                SongFields.ALBUM.name: song.album,
+                SongFields.RELEASE_DATE.name: song.release_date,
+            }
+        )
+        song.id = result.inserted_id
+        return song
 
     @staticmethod
     async def retrieve_many(
@@ -62,29 +73,21 @@ class Song:
         release_date: Optional[str] = None,
     ) -> List["Song"]:
         try:
-            cur = con.cursor()
-            query = "SELECT * FROM songs WHERE 1=1"
-            params = []
+            collection = DB_CLIENT.songs.songs
+            query = {}
 
-            if name:
-                query += " AND name = ?"
-                params.append(name)
-            if artist:
-                query += " AND artist = ?"
-                params.append(artist)
-            if url:
-                query += " AND url = ?"
-                params.append(url)
-            if album:
-                query += " AND album = ?"
-                params.append(album)
-            if release_date:
-                query += " AND release_date = ?"
-                params.append(release_date)
+            if name is not None:
+                query[SongFields.NAME.name] = name
+            if artist is not None:
+                query[SongFields.ARTIST.name] = artist
+            if url is not None:
+                query[SongFields.URL.name] = url
+            if album is not None:
+                query[SongFields.ALBUM.name] = album
+            if release_date is not None:
+                query[SongFields.RELEASE_DATE.name] = release_date
 
-            cur.execute(query, params)
-            results = cur.fetchall()
-            cur.close()
+            results = await collection.find(query).to_list(length=None)
 
             return [Song.from_map(result) for result in results]
         except Exception as e:
@@ -100,64 +103,47 @@ class Song:
         album: Optional[str] = None,
         release_date: Optional[str] = None,
     ) -> Optional["Song"]:
-        try:
-            cur = con.cursor()
-            query = "SELECT * FROM songs WHERE 1=1"
-            params = []
+        collection = DB_CLIENT.songs.songs
+        query = {}
 
-            if id:
-                query += " AND id = ?"
-                params.append(id)
-            if name:
-                query += " AND name = ?"
-                params.append(name)
-            if artist:
-                query += " AND artist = ?"
-                params.append(artist)
-            if url:
-                query += " AND url = ?"
-                params.append(url)
-            if album:
-                query += " AND album = ?"
-                params.append(album)
-            if release_date:
-                query += " AND release_date = ?"
-                params.append(release_date)
+        if id:
+            query[SongFields.ID.name] = id
+        if name:
+            query[SongFields.NAME.name] = name
+        if artist:
+            query[SongFields.ARTIST.name] = artist
+        if url:
+            query[SongFields.URL.name] = url
+        if album:
+            query[SongFields.ALBUM.name] = album
+        if release_date:
+            query[SongFields.RELEASE_DATE.name] = release_date
 
-            cur.execute(query, params)
-            result = cur.fetchone()
-            cur.close()
+        result = await collection.find_one(query)
 
-            return Song.from_map(result) if result else None
-        except Exception as e:
-            print(f"Error occurred while retrieving song: {e}")
-            return None
+        return Song.from_map(result) if result else None
 
     @staticmethod
     async def update(song: "Song") -> Optional["Song"]:
-        try:
-            cur = con.cursor()
-            cur.execute(
-                "UPDATE songs SET name = ?, artist = ?, url = ?, album = ?, release_date = ? WHERE id = ?",
-                (
-                    song.name,
-                    song.artist,
-                    song.url,
-                    song.album,
-                    song.release_date,
-                    song.id,
-                ),
-            )
-            con.commit()
-            cur.close()
-            return song
-        except Exception as e:
-            print(f"Error occurred while updating song: {e}")
-            return None
+        collection = DB_CLIENT.songs.songs
+        await collection.update_one(
+            {"id": song.id},
+            {
+                "$set": {
+                    SongFields.NAME.name: song.name,
+                    SongFields.ARTIST.name: song.artist,
+                    SongFields.AUDIO.name: song.audio,
+                    SongFields.URL.name: song.url,
+                    SongFields.ALBUM.name: song.album,
+                    SongFields.RELEASE_DATE.name: song.release_date,
+                }
+            },
+        )
+        return song
 
     @staticmethod
     def format_song(song: "Song") -> str:
         return f"Name: {song.name}\nArtist: {song.artist}\nURL: {song.url}\nAlbum: {song.album}\nRelease Date: {song.release_date}"
 
     def to_string(self) -> str:
-        return f"Name: {self.name}\nArtist: {self.artist}\nURL: {self.url}\nAlbum: {self.album}\nRelease Date: {self.release_date}"
+        return f"SONG\nName: {self.name}\nArtist: {self.artist}\nURL: {self.url}\nAlbum: {self.album}\nRelease Date: {self.release_date}"

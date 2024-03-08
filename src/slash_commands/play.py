@@ -1,20 +1,24 @@
 from typing import Any
 from discord.ext import commands
-from utils.constants import SERVERS, bot
-from services import discord
+from utils.constants import DB_CLIENT, SERVERS, bot
+from services import discord_service
 
 
 SUCCESS_MESSAGE = "Blowbot was resumed by {ctx.author.name}"
+NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
 
 
-@bot.slash_command(
+@bot.command(
     name="play",
     description="Attempt to resume blowbot playback",
     guild_ids=SERVERS,
 )
 async def play(ctx: commands.Context) -> Any:
-    # pause the current song
-    await discord.play_song()
+    if ctx.guild is None:
+        raise Exception(NO_GUILD_MESSAGE)
+    db = DB_CLIENT[str(ctx.guild.id)]
+    # play the current song
+    await discord_service.play_song()
     # return a success message as confirmation
-    await ctx.respond(SUCCESS_MESSAGE, ephemeral=True)
+    await ctx.send(SUCCESS_MESSAGE, ephemeral=True)
     return

@@ -1,32 +1,39 @@
-from utils.constants import SERVERS, bot
-from utils.state import QUEUE_NUM, CURRENT_SONG
+from models.songs import Song
+from utils.constants import DB_CLIENT, SERVERS, bot
 from models.queue import Queue
-from services.discord import play_song
+from discord_service import play_song
 from discord.ext import commands
 
 
 BACK_NO_PREVIOUS_SONG_MESSAGE = "Could not go back to the previous song because there IS no previous song in the queue"
 BACK_SUCCESS_MESSAGE = "Playing the previous song again at {ctx.author.name}'s request"
+COULD_NOT_FIND_SONG = "There was an error finding the previous song"
+NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
 
 
-@bot.slash_command(
+@bot.command(
     name="back",
     description="Relisten to the previous song (if it exists)",
     guild_ids=SERVERS,
 )
 async def back(ctx: commands.Context) -> None:
-    global QUEUE_NUM
-    global CURRENT_SONG
+    if ctx.guild is None:
+        raise Exception(NO_GUILD_MESSAGE)
+    db = DB_CLIENT[str(ctx.guild.id)]
     # update queue_num and current_song accordingly and the db
-    QUEUE_NUM -= 1
-    if QUEUE_NUM < 0:
-        QUEUE_NUM = 0
-        await ctx.respond(BACK_NO_PREVIOUS_SONG_MESSAGE)
+    queue_num -= 1
+    if queue_num < 0:
+        queue_num = 0
+        await ctx.send(BACK_NO_PREVIOUS_SONG_MESSAGE)
         return
-    CURRENT_SONG = Queue.retrieve_one(QUEUE_NUM)
+    queue = await Queue.retrieve_one(db, current_song.id)
 
     # play the previous song again
-    await play_song()
+    if queue != None:
+        await play_song(queue.audio)
+    else:
+        await ctx.send(BACK_NO_PREVIOUS_SONG_MESSAGE)
+        return
 
     # return a success message as confirmation
-    await ctx.respond(BACK_SUCCESS_MESSAGE)
+    await ctx.send(BACK_SUCCESS_MESSAGE)

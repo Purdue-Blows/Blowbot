@@ -13,3 +13,8 @@
 - [] Playlist related commands
   - [] Admin-specific functionality
 - [] Badges & Roles (handled via discord; database doesn't contain ALL the info)
+
+## HELPFUL
+db.playlist.deleteMany({});
+db.songs.deleteMany({});
+db.playlist.find({}, { song_id: 1, played: 1, user_id: 1 })

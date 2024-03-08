@@ -25,10 +25,10 @@ The official Purdue Blows Discord Bot, built by Purdue Jazz for Purdue Jazz!
 """
 
 
-@bot.slash_command(
+@bot.command(
     name="help",
     description="Get some advice on Blowbot and how to best utilize it",
     guild_ids=SERVERS,
 )
 async def help(ctx: commands.Context) -> Any:
-    await ctx.respond(HELP_MESSAGE, ephemeral=True)
+    await ctx.send(HELP_MESSAGE, ephemeral=True)
