@@ -1,13 +1,17 @@
 from typing import List
 from discord import VoiceClient
 from discord.ext import commands
-from utils.constants import DB_CLIENT, SERVERS, bot
+from src.slash_commands.add_to_playlist import SUCCESS_MESSAGE
+from utils.constants import DB_CLIENT, SERVERS, PlaylistNames, bot, ydl
 
 # from utils.state import CURRENT_SONG
 from models.songs import Song
+from youtube_service import sync_playlist
 
 CURRENT_SONG_MESSAGE = "Blowbot is not currently playing anything"
 NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
+GENERIC_ERROR = "An error occurred while syncing the playlist"
+SUCCESS_MESSAGE = "Playlist synced"
 
 
 @bot.command(
@@ -15,15 +19,13 @@ NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
     description="Syncs the playlist with the YT playlist if you are an admin, REMOVES RANDOMIZATION",
     guild_ids=SERVERS,
 )
-async def sync_playlist_command(ctx: commands.Context) -> None:
+async def sync_playlist_command(ctx: commands.Context, playlist_name: str) -> None:
     if ctx.guild is None:
         raise Exception(NO_GUILD_MESSAGE)
     db = DB_CLIENT[str(ctx.guild.id)]
-    # Retrieve the bots current song
-    voice_client = ctx.voice_client
-    if isinstance(voice_client, VoiceClient):
-        if voice_client and voice_client.is_playing():
-            await ctx.send(Song.format_song(voice_client.source), ephemeral=True)
-        else:
-            await ctx.send(CURRENT_SONG_MESSAGE, ephemeral=True)
-        return
+    try:
+        if playlist_name in PlaylistNames:
+            await sync_playlist(db, ydl, PlaylistNames.from_string(playlist_name))
+            await ctx.send(SUCCESS_MESSAGE)
+    except Exception as e:
+        await ctx.send(GENERIC_ERROR)

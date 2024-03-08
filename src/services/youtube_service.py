@@ -1,5 +1,6 @@
 # Attempts to retrieve a song from youtube
 import os
+from yt_dlp import YoutubeDL
 
 from redis import DataError
 from models.playlist import Playlist
@@ -7,8 +8,14 @@ from models.songs import Song
 from models.users import User
 from services import spotify_service
 from services import youtube_service
-from utils.constants import MAX_PLAYLIST_LENGTH, ydl, PURDUE_BLOWS_PLAYLIST_URL
-from utils.functions import escape_special_characters, to_mp3_file
+from utils.constants import (
+    MAX_PLAYLIST_LENGTH,
+    PURDUE_BLOWS_PLAYLISTS,
+    PlaylistNames,
+    spotify,
+)
+from utils.escape_special_characters import escape_special_characters
+from utils.to_mp3_file import to_mp3_file
 from discord.ext import commands
 
 USER_ADD_ERROR_MESSAGE = "An error occurred while adding the user to the database"
@@ -16,7 +23,7 @@ YOUTUBE_DOWNLOAD_ERROR = "Could not download the information from youtube"
 
 
 # Attempts to retrieve the song metadata from a youtube url
-async def get_song_metadata_from_youtube(song: Song) -> Song:
+async def get_song_metadata_from_youtube(ydl: YoutubeDL, song: Song) -> Song:
     # Validate that the url of the song is a youtube url
     if not await validate_youtube_url(song.url):
         return song
@@ -60,7 +67,7 @@ async def validate_youtube_url(url: str) -> bool:
 
 
 # Attempts to download the song at url from youtube
-async def download_song_from_youtube(url: str) -> bytes:
+async def download_song_from_youtube(ydl: YoutubeDL, url: str) -> bytes:
     # Use the yt-dlp library to download the song
     info_dict = ydl.extract_info(url, download=True)
     if info_dict is None:
@@ -88,7 +95,7 @@ async def download_song_from_youtube(url: str) -> bytes:
 
 # Check if song exists in the youtube playlist
 # NOTE: does not add the song to the playlist
-async def check_song_in_playlist(song: Song) -> bool:
+async def check_song_in_playlist(ydl: YoutubeDL, song: Song) -> bool:
     # Retrieve playlist data using the youtube api
     playlist_dict = ydl.extract_info(song.url, download=False)
 
@@ -107,13 +114,15 @@ async def check_song_in_playlist(song: Song) -> bool:
 
 
 # A general utility method to ensure that the YouTube playlist and db are synced
-async def sync_playlist(db) -> bool:
+async def sync_playlist(db, ydl: YoutubeDL, playlist_name: PlaylistNames) -> bool:
     # Ensure that the entire playlist can be retrieved
     ydl.params["playlist_items"] = "1-" + str(
         MAX_PLAYLIST_LENGTH
     )  # Not fetching any more than 1000 songs
     # Retrieve playlist data using the youtube api
-    playlist_dict = ydl.extract_info(PURDUE_BLOWS_PLAYLIST_URL, download=False)
+    playlist_dict = ydl.extract_info(
+        PURDUE_BLOWS_PLAYLISTS[playlist_name], download=False
+    )
 
     if playlist_dict is None:
         raise DataError(YOUTUBE_DOWNLOAD_ERROR)
@@ -147,7 +156,9 @@ async def sync_playlist(db) -> bool:
                     or song.release_date is None
                 ):
                     # Get any data possible from youtube
-                    song = await youtube_service.get_song_metadata_from_youtube(song)
+                    song = await youtube_service.get_song_metadata_from_youtube(
+                        ydl, song
+                    )
                     print(song.to_string())
                     # Get any data possible from spotify
                     if (
@@ -157,7 +168,7 @@ async def sync_playlist(db) -> bool:
                         or song.release_date is None
                     ):
                         song = await spotify_service.get_song_metadata_from_spotify(
-                            song
+                            spotify, song
                         )
                 # Download the video associated with the url
                 # Using the id of the song, add it to the queue table
@@ -166,9 +177,8 @@ async def sync_playlist(db) -> bool:
                     db,
                     Playlist(
                         song=song,
-                        # audio=await download_song_from_youtube(video["webpage_url"]),
-                        # playlist_name="Purdue Blows",
-                        # playlist_num=0,
+                        playlist_name=playlist_name.name,
+                        playlist_num=video["playlist_index"],
                         played=False,
                         user=None,
                     ),

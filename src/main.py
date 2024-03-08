@@ -12,7 +12,9 @@ from utils.constants import (
     MONGO_PORT,
     SERVERS,
     PURDUE_BLOWS_CHANNEL_IDS,
+    PlaylistNames,
     bot,
+    ydl,
     DB_CLIENT,
     initialize_collections,
     mongod,
@@ -59,7 +61,8 @@ async def on_ready():
     for server in SERVERS:
         db = DB_CLIENT[str(server)]
         await initialize_collections(db)
-        await sync_playlist(db)
+        for playlist_name in PlaylistNames:
+            await sync_playlist(db, ydl, playlist_name=playlist_name)
     print("Collections initialized")
 
     guild = bot.get_guild(BOT_DEBUGGING_SERVER_ID)
@@ -67,7 +70,7 @@ async def on_ready():
     channel: discord.VoiceChannel = guild.get_channel(BOT_DEBUGGING_SERVER_CHANNEL_IDS["general_voice"])  # type: ignore
     assert channel != None
     # Check if the bot is currently playing music
-    if not await is_bot_playing():
+    if not await is_bot_playing(bot):
         # Get the voice channel to join
         voice_client = await move_to(channel)
         if DB_CLIENT == None:
@@ -85,20 +88,20 @@ async def on_ready():
         #     )
         # )
         print("Playlist synced")
-        # Initialize the current song
-        try:
-            await Playlist.shuffle(db)
-            playlist = await Playlist.retrieve_one(db)
-            if playlist != None:
-                song = await Song.retrieve_one(id=playlist.song.id)
-                if not song:
-                    raise Exception("Audio is None")
-                if song.audio is None:
-                    raise Exception("Audio is None")
-                await play_song(song.audio)
-                print("Streaming!")
-        except Exception as e:
-            return
+        # NOTE: in order for blowbot to actually play a song
+        # try:
+        #     await Playlist.shuffle(db)
+        #     playlist = await Playlist.retrieve_one(db)
+        #     if playlist != None:
+        #         song = await Song.retrieve_one(id=playlist.song.id)
+        #         if not song:
+        #             raise Exception("Audio is None")
+        #         if song.audio is None:
+        #             raise Exception("Audio is None")
+        #         await play_song(bot, song.audio)
+        #         print("Streaming!")
+        # except Exception as e:
+        #     return
 
 
 @bot.event
@@ -113,8 +116,8 @@ async def on_disconnect():
     mongod.kill()
 
     # Disconnect from vc
-    if await is_bot_connected():
-        await disconnect()
+    if await is_bot_connected(bot):
+        await disconnect(bot)
 
 
 try:

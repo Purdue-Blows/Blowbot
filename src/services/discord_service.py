@@ -1,6 +1,8 @@
 from typing import Union
-from src.models.songs import Song
-from utils.constants import bot
+from models.songs import Song
+
+# from utils.constants import bot
+from discord.ext.commands import Bot
 
 # from discord import VoiceChannel
 from discord import Member, VoiceChannel, VoiceClient, VoiceProtocol, AudioSource
@@ -11,7 +13,7 @@ from models.queue import Queue
 
 
 # Checks if the bot is currently playing a song
-async def is_bot_playing() -> bool:
+async def is_bot_playing(bot: Bot) -> bool:
     for vc in bot.voice_clients:
         if vc:
             return True
@@ -19,7 +21,7 @@ async def is_bot_playing() -> bool:
 
 
 # Checks if the bot is connected to a VC
-async def is_bot_connected() -> bool:
+async def is_bot_connected(bot: Bot) -> bool:
     return len(bot.voice_clients) != 0
 
 
@@ -39,7 +41,7 @@ async def move_to(channel: VoiceChannel) -> VoiceClient | None:
 
 
 # Attempts to disconnect the bot from voice
-async def disconnect() -> None:
+async def disconnect(bot: Bot) -> None:
     for vc in bot.voice_clients:
         await vc.disconnect(force=True)
     return
@@ -51,10 +53,10 @@ async def is_admin(account: Member) -> bool:
 
 
 # Play the current song
-async def play_song(audio: bytes) -> None:
-    if await is_bot_playing():
+async def play_song(bot: Bot, audio: bytes) -> None:
+    if await is_bot_playing(bot):
         raise Exception("Bot is already playing")
-    if await is_bot_connected():
+    if await is_bot_connected(bot):
         for vc in bot.voice_clients:
             if vc:
                 if isinstance(vc, VoiceClient):
@@ -63,10 +65,10 @@ async def play_song(audio: bytes) -> None:
 
 
 # Pause the current song
-async def pause() -> None:
-    if await is_bot_playing():
+async def pause(bot: Bot) -> None:
+    if await is_bot_playing(bot):
         raise Exception("Bot is not currently playing")
-    if await is_bot_connected():
+    if await is_bot_connected(bot):
         for vc in bot.voice_clients:
             if vc:
                 if isinstance(vc, VoiceClient):

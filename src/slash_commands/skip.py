@@ -1,7 +1,10 @@
+from sre_constants import SUCCESS
+import discord_service
 from models.queue import Queue
 from discord_service import pause, play_song
-from utils.constants import DB_CLIENT, SERVERS, bot, db
-from utils.state import QUEUE_NUM, CURRENT_SONG
+from src.models.playback import Playback
+from src.models.playlist import Playlist
+from utils.constants import DB_CLIENT, SERVERS, CurrentlyPlaying, bot
 from discord.ext import commands
 
 
@@ -12,8 +15,9 @@ NO_NEXT_SONG_MESSAGE = (
 PLAYING_PREVIOUS_SONG_MESSAGE = (
     "Playing the previous song again at {ctx.author.name}'s request"
 )
-SKIP_ERROR_MESSAGE = "Sorry, an error occurred while trying to skip the song"
+GENERIC_ERROR = "Sorry, an error occurred while trying to skip the song"
 NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
+SUCCESS_MESSAGE = "Song skipped successfully"
 
 
 @bot.command(
@@ -25,28 +29,28 @@ async def skip(ctx: commands.Context):
     if ctx.guild is None:
         raise Exception(NO_GUILD_MESSAGE)
     db = DB_CLIENT[str(ctx.guild.id)]
-    global QUEUE_NUM
-    global CURRENT_SONG
-    # update queue_num and current_song accordingly and the db
-    QUEUE_NUM += 1
     try:
-        queue_count = await db.queue.count_documents({})
-        if QUEUE_NUM > queue_count:
-            QUEUE_NUM -= 1
-            await ctx.send(NO_NEXT_SONG_MESSAGE)
-            return
-
         # Pause the current song
-        await pause()
-
-        # Retrieve the next song from the queue
-        CURRENT_SONG = Queue.retrieve_one(QUEUE_NUM)
-
-        # play the previous song again
-        await play_song()
-
-        # return a success message as confirmation
-        await ctx.send(PLAYING_PREVIOUS_SONG_MESSAGE)
-        return
+        await discord_service.pause(bot)
+        # Determine whether the queue or playlist is playing
+        currently_playing: CurrentlyPlaying = await Playback.get_currently_playing(db)
+        if currently_playing == CurrentlyPlaying.QUEUE:
+            # If the queue is playing, skip to the next song
+            song = await Queue.get_next_song(db)
+            if song:
+                if song.audio:
+                    await discord_service.play_song(bot, song.audio)
+                    await ctx.send(SUCCESS_MESSAGE, ephemeral=True)
+                    return
+        elif currently_playing == CurrentlyPlaying.PLAYLIST:
+            # If the playlist is playing, skip to the next song
+            song = await Playlist.get_next_song(db)
+            if song:
+                if song.audio:
+                    await discord_service.play_song(bot, song.audio)
+                    await ctx.send(SUCCESS_MESSAGE, ephemeral=True)
+                    return
+        else:
+            await ctx.send(GENERIC_ERROR, ephemeral=True)
     except Exception as e:
-        await ctx.send(SKIP_ERROR_MESSAGE.format(str(e)))
+        await ctx.send(GENERIC_ERROR, ephemeral=True)

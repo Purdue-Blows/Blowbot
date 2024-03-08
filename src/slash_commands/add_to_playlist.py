@@ -3,7 +3,7 @@ from models.songs import Song
 from models.users import User
 from services import spotify_service
 from services import youtube_service
-from utils.constants import DB_CLIENT, SERVERS, bot
+from utils.constants import DB_CLIENT, SERVERS, bot, ydl, spotify
 from discord.ext import commands
 from typing import Optional
 
@@ -31,7 +31,7 @@ NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
 async def add_to_playlist(
     ctx: commands.Context,
     url: str,
-    playlist_name: Optional[str] = None,
+    playlist_name: str,
     name: Optional[str] = None,
     artist: Optional[str] = None,
     album: Optional[str] = None,
@@ -50,11 +50,11 @@ async def add_to_playlist(
     # if a parameter is None, attempt to search the spotify api for it
     if name is None or artist is None or album is None or release_date is None:
         # Get any data possible from youtube
-        song = await youtube_service.get_song_metadata_from_youtube(song)
+        song = await youtube_service.get_song_metadata_from_youtube(ydl, song)
         print(song.to_string())
         # Get any data possible from spotify
         if name is None or artist is None or album is None or release_date is None:
-            song = await spotify_service.get_song_metadata_from_spotify(song)
+            song = await spotify_service.get_song_metadata_from_spotify(spotify, song)
     print(song.to_string())
     # if the data isn't acquired, throw an error accordingly
     if song.name is None and song.artist is None:
@@ -103,7 +103,7 @@ async def add_to_playlist(
             db,
             Playlist(
                 song=song,
-                audio=await youtube_service.download_song_from_youtube(song.url),
+                playlist_name=playlist_name,
                 played=False,
                 user=user,
             ),

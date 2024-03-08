@@ -23,7 +23,7 @@ async def remove_from_queue(ctx: commands.Context, index: int):
     db = DB_CLIENT[str(ctx.guild.id)]
     try:
         # retrieve the song from playlist at index index
-        queue = await Queue.retrieve_one(id=index)
+        queue = await Queue.retrieve_one(db, id=index)
         if queue is None:
             await ctx.send(RESPONSE_QUEUE_NOT_FOUND.format(index=index))
             return
@@ -40,7 +40,7 @@ async def remove_from_queue(ctx: commands.Context, index: int):
         return
     try:
         # remove the song from the playlist
-        await queue.remove_song(queue)
+        await queue.remove_song(db, queue)
         await ctx.send(RESPONSE_SONG_REMOVED.format(ctx=ctx, queue=queue))
     except Exception as e:
         await ctx.send(RESPONSE_ERROR_REMOVING_SONG)

@@ -2,7 +2,8 @@ from enum import Enum
 from typing import Optional, List, Union
 from models.model_fields import SongFields
 
-from utils.constants import DB_CLIENT
+from utils.constants import DB_CLIENT, ydl
+from youtube_service import download_song_from_youtube
 
 
 class Song:
@@ -49,8 +50,10 @@ class Song:
 
     # Add the song to the database
     @staticmethod
-    async def add(song: "Song") -> Optional["Song"]:
+    async def add(song: "Song") -> "Song":
         collection = DB_CLIENT.songs.songs
+        if song.audio is None:
+            song.audio = await download_song_from_youtube(ydl, song.url)
         result = await collection.insert_one(
             {
                 SongFields.NAME.name: song.name,
@@ -124,9 +127,9 @@ class Song:
         return Song.from_map(result) if result else None
 
     @staticmethod
-    async def update(song: "Song") -> Optional["Song"]:
+    async def update(song: "Song") -> bool:
         collection = DB_CLIENT.songs.songs
-        await collection.update_one(
+        update = await collection.update_one(
             {"id": song.id},
             {
                 "$set": {
@@ -139,7 +142,9 @@ class Song:
                 }
             },
         )
-        return song
+        if update:
+            return True
+        return False
 
     @staticmethod
     def format_song(song: "Song") -> str:

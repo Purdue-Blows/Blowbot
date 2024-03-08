@@ -10,6 +10,13 @@ class SongFields(Enum):
     ALBUM = "album"
     RELEASE_DATE = "release_date"
 
+    @classmethod
+    def from_string(cls, value):
+        for field in cls:
+            if field.value == value:
+                return field
+        raise ValueError(f"No matching field found for value: {value}")
+
 
 class PlaylistFields(Enum):
     ID = "_id"
@@ -19,6 +26,13 @@ class PlaylistFields(Enum):
     PLAYLIST_NUM = "playlist_num"
     PLAYLIST_NAME = "playlist_name"
 
+    @classmethod
+    def from_string(cls, value):
+        for field in cls:
+            if field.value == value:
+                return field
+        raise ValueError(f"No matching field found for value: {value}")
+
 
 class QueueFields(Enum):
     ID = "_id"
@@ -26,6 +40,13 @@ class QueueFields(Enum):
     USER_ID = "user_id"
     QUEUE_NUM = "queue_num"
     PLAYED = "played"
+
+    @classmethod
+    def from_string(cls, value):
+        for field in cls:
+            if field.value == value:
+                return field
+        raise ValueError(f"No matching field found for value: {value}")
 
 
 class UserFields(Enum):
@@ -35,3 +56,24 @@ class UserFields(Enum):
     JAZZ_TRIVIA_CORRECT = "jazz_trivia_correct"
     JAZZ_TRIVIA_INCORRECT = "jazz_trivia_incorrect"
     JAZZ_TRIVIA_PERCENTAGE = "jazz_trivia_percentage"
+
+    @classmethod
+    def from_string(cls, value):
+        for field in cls:
+            if field.value == value:
+                return field
+        raise ValueError(f"No matching field found for value: {value}")
+
+
+class PlaybackFields(Enum):
+    ID = "_id"
+    CURRENT_PLAYLIST = "current_playlist"
+    CURRENT_PLAYLIST_INDEX = "current_playlist_index"
+    CURRENTLY_PLAYING = "currently_playing"
+
+    @classmethod
+    def from_string(cls, value):
+        for field in cls:
+            if field.value == value:
+                return field
+        raise ValueError(f"No matching field found for value: {value}")

@@ -1,5 +1,6 @@
 from enum import Enum
 import os
+from pickle import NONE
 import subprocess
 import discord
 import sqlite3
@@ -14,9 +15,16 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import yt_dlp
-from src.models.model_fields import PlaylistFields, QueueFields, SongFields, UserFields
+from models.model_fields import (
+    PlaybackFields,
+    PlaylistFields,
+    QueueFields,
+    SongFields,
+    UserFields,
+)
 
-from utils.functions import escape_special_characters, to_mp3_file
+from utils.escape_special_characters import escape_special_characters
+from utils.to_mp3_file import to_mp3_file
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -68,16 +76,41 @@ FAKE_BOOK_PLAYLIST_URL = (
 )
 
 
-class PlaylistName(Enum):
+class PlaylistNames(Enum):
     COMMUNITY = "community"
     FAKE_BOOK = "fake_book"
 
+    @classmethod
+    def from_string(cls, value: str | None) -> "PlaylistNames":
+        for playlist in cls:
+            if playlist.value == value:
+                return playlist
+        raise ValueError(f"No playlist with value '{value}' exists.")
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class CurrentlyPlaying(Enum):
+    PLAYLIST = "playlist"
+    QUEUE = "queue"
+    NONE = "none"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> "CurrentlyPlaying":
+        for playing in cls:
+            if playing.value == value:
+                return playing
+        raise ValueError(f"No currently playing with value '{value}' exists.")
+
+    def __str__(self) -> str:
+        return self.value
+
 
 PURDUE_BLOWS_PLAYLISTS = {
-    # TODO: update this w/ new playlists
     # Playlist name: vc id associated with playlist
-    PlaylistName.COMMUNITY: COMMUNITY_PLAYLIST_URL,
-    PlaylistName.FAKE_BOOK: FAKE_BOOK_PLAYLIST_URL,
+    PlaylistNames.COMMUNITY: COMMUNITY_PLAYLIST_URL,
+    PlaylistNames.FAKE_BOOK: FAKE_BOOK_PLAYLIST_URL,
 }
 
 MAX_PLAYLIST_LENGTH = 1000
@@ -158,6 +191,11 @@ async def initialize_collections(db):
             QueueFields.PLAYED.name
         )  # NOTE: the queue never has more than 50 songs in it; if it does, on adding to it the one
         # with the smallest queue_num that has been played is deleted
+
+    if not await db.playback.index_information():
+        await db.playback.create_index(PlaybackFields.CURRENT_PLAYLIST.name)
+        await db.playback.create_index(PlaybackFields.CURRENT_PLAYLIST_INDEX.name)
+        await db.playback.create_index(PlaybackFields.CURRENTLY_PLAYING.name)
 
     # Set validation rules for collections
     # Ensure that the song_id and user_id fields always map to valid instances in the song and user collections

@@ -1,15 +1,20 @@
 from enum import Enum
+from optparse import Option
 import random
+from turtle import update
 from models.songs import Song
 from models.users import User
 from typing import Dict, Any, List, Optional, Union
 from models.songs import Song
 from models.users import User
 from pymongo.errors import DuplicateKeyError
-from src.models.model_fields import PlaylistFields, QueueFields
+from src.models.model_fields import PlaybackFields, PlaylistFields, QueueFields
 
-from utils.constants import PlaylistName
+from utils.constants import PURDUE_BLOWS_PLAYLISTS, PlaylistNames
 import random
+
+SONG_NOT_FOUND = "Song not found"
+COULD_NOT_GET_PLAYLIST_NUM = "Could not get playlist num"
 
 
 class Playlist:
@@ -17,8 +22,8 @@ class Playlist:
         self,
         song: Song,
         played: bool,
-        playlist_num: int,
-        playlist_name: PlaylistName,
+        playlist_name: str,
+        playlist_num: Optional[int] = None,
         user: Optional[User] = None,
         id: Optional[int] = None,
     ) -> None:
@@ -47,7 +52,7 @@ class Playlist:
         except Exception as e:
             user = None
         if song is None:
-            raise ValueError("Song not found")
+            raise ValueError(SONG_NOT_FOUND)
         # User can be none in certain cases, such as admins adding via the yt api
         # if user is None:
         #     raise ValueError("User not found")
@@ -62,11 +67,15 @@ class Playlist:
 
     @staticmethod
     async def add(db, playlist: "Playlist") -> Union["Playlist", None]:
-        # TODO: Check that song id and user id are in the database
         try:
             print("Playlist.add was called")
             # If the song isn't already in songs, add it
             song = await Song.add(playlist.song)
+
+            if playlist.playlist_num is None:
+                playlist.playlist_num = await Playlist.get_next_playlist_num(
+                    db, playlist.playlist_name
+                )
 
             if song:
                 print("Song is: " + song.to_string())
@@ -102,11 +111,52 @@ class Playlist:
             return playlist
 
     @staticmethod
+    async def get_next_playlist_num(db, playlist_name: str) -> int:
+        largest_playlist_num = await db.playlist.find_one(
+            {PlaylistFields.PLAYLIST_NAME.name: playlist_name},
+            sort=[(PlaylistFields.PLAYLIST_NUM.name, -1)],
+            projection={PlaylistFields.PLAYLIST_NUM.name: 1},
+        )
+        if largest_playlist_num:
+            playlist_num = largest_playlist_num[PlaylistFields.PLAYLIST_NUM.name] + 1
+        else:
+            raise Exception(COULD_NOT_GET_PLAYLIST_NUM)
+        return playlist_num
+
+    @staticmethod
+    async def get_current_song(
+        db, playlist_name: Optional[str] = None
+    ) -> Optional[Song]:
+        if playlist_name is None:
+            for name in PURDUE_BLOWS_PLAYLISTS:
+                playlists = await db.playlists.find(
+                    {
+                        PlaylistFields.PLAYLIST_NAME.name: name,
+                        PlaylistFields.PLAYED.name: True,
+                    }
+                ).to_list(length=None)
+                if len(playlists) > 0:
+                    break
+        if playlists is None:
+            raise Exception(SONG_NOT_FOUND)
+        current_playlist = max(playlists, key=lambda playlist: playlist.playlist_num)
+        song = await Song.retrieve_one(id=current_playlist[PlaylistFields.SONG_ID.name])
+        return song
+
+    @staticmethod
+    async def get_playlist_count(db, playlist_name: str) -> int:
+        count = await db.playlist.count_documents(
+            {PlaylistFields.PLAYLIST_NAME.name: playlist_name}
+        )
+        return count
+
+    @staticmethod
     async def retrieve_many(
         db,
         song_ids: Optional[List[int]] = None,
         played: Optional[bool] = None,
         user_id: Optional[int] = None,
+        playlist_name: Optional[str] = None,
         url: Optional[str] = None,
         name: Optional[str] = None,
         album: Optional[str] = None,
@@ -119,6 +169,7 @@ class Playlist:
             and user_id is None
             and url is None
             and name is None
+            and playlist_name is None
             and album is None
             and artist is None
             and release_date is None
@@ -152,6 +203,8 @@ class Playlist:
             query[PlaylistFields.SONG_ID.name] = {"$in": song_ids}
         if played is not None:
             query[PlaylistFields.PLAYED.name] = played
+        if playlist_name is not None:
+            query[PlaylistFields.PLAYLIST_NAME.name] = playlist_name
         if user_id is not None:
             query[PlaylistFields.USER_ID.name] = user_id
 
@@ -167,6 +220,7 @@ class Playlist:
         id: Optional[int] = None,
         song_id: Optional[int] = None,
         played: Optional[bool] = None,
+        playlist_name: Optional[str] = None,
         user_id: Optional[int] = None,
         url: Optional[str] = None,
         name: Optional[str] = None,
@@ -199,6 +253,8 @@ class Playlist:
             query[PlaylistFields.ID.name] = id
         if song_id is not None:
             query[PlaylistFields.SONG_ID.name] = song_id
+        if playlist_name is not None:
+            query[PlaylistFields.PLAYLIST_NAME.name] = playlist_name
         if played is not None:
             query[PlaylistFields.PLAYED.name] = played
         if user_id is not None:
@@ -215,8 +271,15 @@ class Playlist:
 
     # Shuffles the songs in the playlist that haven't been played yet
     @staticmethod
-    async def shuffle(db) -> None:
-        query = {PlaylistFields.PLAYED.name: False}
+    async def shuffle(db, playlist_name: Optional[PlaylistNames] = None) -> None:
+        query: dict[str, Any] = {PlaylistFields.PLAYED.name: False}
+        if playlist_name:
+            query[PlaylistFields.PLAYLIST_NAME.name] = playlist_name.name
+        else:
+            playback_doc = await db.playback.find_one({})
+            current_playlist_name = playback_doc[PlaybackFields.CURRENT_PLAYLIST.name]
+            query[PlaylistFields.PLAYLIST_NAME.name] = current_playlist_name
+
         playlists = await db.playlist.find(query).to_list(length=None)
         if playlists:
             for playlist in playlists:
@@ -246,22 +309,90 @@ class Playlist:
         return None
 
     @staticmethod
-    async def reset_playlists(db) -> None:
-        await db.playlist.delete_many({})
-
-    @staticmethod
-    async def reset_playlist(db, playlist_name: PlaylistName) -> None:
-        await db.playlist.delete_many(
-            {PlaylistFields.PLAYLIST_NAME.name: playlist_name.name}
+    async def switch_playlist(db, new_playlist_name: PlaylistNames) -> bool:
+        # Mark all songs as having not been played
+        update_playlists = await db.playlist.update_many(
+            {}, {"$set": {PlaylistFields.PLAYED.name: False}}
         )
+        if not update_playlists:
+            return False
+        # Update the current playback playlist name and playlist index
+        update_playback = await db.playback.update_one(
+            {},
+            {
+                "$set": {
+                    PlaybackFields.CURRENT_PLAYLIST_INDEX.name: 0,
+                    PlaybackFields.CURRENT_PLAYLIST.name: new_playlist_name,
+                }
+            },
+        )
+        if not update_playback:
+            return False
+        return True
 
     @staticmethod
-    async def remove_song(db, playlist: "Playlist") -> None:
-        await db.playlist.delete_one({PlaylistFields.ID.name: playlist.id})
+    async def get_next_song(db) -> Optional[Song]:
+        # Returns the next song in the currently playing playlist
+        playback_doc = await db.playback.find_one({})
+        current_playlist_name = playback_doc[PlaybackFields.CURRENT_PLAYLIST.name]
+        current_playlist_index = playback_doc[
+            PlaybackFields.CURRENT_PLAYLIST_INDEX.name
+        ]
+        current_playlist_index += 1
+        next_playlist = await Playlist.retrieve_one(
+            db, current_playlist_name, current_playlist_index
+        )
+        if not next_playlist:
+            return None
+        song = await Song.retrieve_one(id=next_playlist.song.id)
+        return song
 
     @staticmethod
-    async def update(db, playlist: "Playlist") -> Optional["Playlist"]:
-        await db.playlist.update_one(
+    async def get_previous_song(db) -> Optional[Song]:
+        # Returns the next song in the currently playing playlist
+        playback_doc = await db.playback.find_one({})
+        current_playlist_name = playback_doc[PlaybackFields.CURRENT_PLAYLIST.name]
+        current_playlist_index = playback_doc[
+            PlaybackFields.CURRENT_PLAYLIST_INDEX.name
+        ]
+        current_playlist_index += 1
+        next_playlist = await Playlist.retrieve_one(
+            db, current_playlist_name, current_playlist_index
+        )
+        if not next_playlist:
+            return None
+        song = await Song.retrieve_one(id=next_playlist.song.id)
+        return song
+
+    @staticmethod
+    async def reset_playlists(db) -> bool:
+        reset = await db.playlist.update_many(
+            {}, {"$set": {PlaylistFields.PLAYED.name: False}}
+        )
+        if reset:
+            return True
+        return False
+
+    @staticmethod
+    async def reset_playlist(db, playlist_name: PlaylistNames) -> bool:
+        reset = await db.playlist.update_many(
+            {PlaylistFields.PLAYLIST_NAME.name: playlist_name.name},
+            {"$set": {PlaylistFields.PLAYED.name: False}},
+        )
+        if reset:
+            return True
+        return False
+
+    @staticmethod
+    async def remove_song(db, playlist: "Playlist") -> bool:
+        delete = await db.playlist.delete_one({PlaylistFields.ID.name: playlist.id})
+        if delete:
+            return True
+        return False
+
+    @staticmethod
+    async def update(db, playlist: "Playlist") -> bool:
+        update = await db.playlist.update_one(
             {PlaylistFields.ID.name: playlist.id},
             {
                 "$set": {
@@ -275,7 +406,9 @@ class Playlist:
                 }
             },
         )
-        return playlist
+        if update:
+            return True
+        return False
 
     def to_string(self):
         return (

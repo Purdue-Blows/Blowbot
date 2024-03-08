@@ -3,7 +3,7 @@ from typing import Any, Optional, Dict
 from models.queue import Queue
 from models.users import User
 from services import spotify_service
-from utils.constants import DB_CLIENT, SERVERS, bot
+from utils.constants import DB_CLIENT, SERVERS, bot, ydl, spotify
 from services import youtube_service
 from models.songs import Song
 
@@ -42,8 +42,8 @@ async def add_to_queue(
     if name is None or artist is None or album is None or release_date is None:
         # Get any data possible from youtube
         if name is None or artist is None:
-            song = await youtube_service.get_song_metadata_from_youtube(song)
-        song = await spotify_service.get_song_metadata_from_spotify(song)
+            song = await youtube_service.get_song_metadata_from_youtube(ydl, song)
+        song = await spotify_service.get_song_metadata_from_spotify(spotify, song)
     # if the data isn't acquired, throw an error accordingly
     try:
         await Song.add(song=song)
@@ -71,7 +71,6 @@ async def add_to_queue(
             db,
             Queue(
                 song=song,
-                audio=await youtube_service.download_song_from_youtube(song.url),
                 user=user,
             ),
         )

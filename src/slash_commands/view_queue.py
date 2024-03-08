@@ -2,7 +2,7 @@ from discord.ext import commands
 from utils.constants import DB_CLIENT, SERVERS, bot
 from models.songs import Song
 from models.queue import Queue
-from utils.send_in_parts import send_message_in_parts
+from src.utils.send_message_in_parts import send_message_in_parts
 
 
 # View the current queue

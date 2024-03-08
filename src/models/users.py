@@ -123,19 +123,23 @@ class User:
         return User.from_map(result)
 
     @staticmethod
-    async def update(db, user: "User") -> Optional["User"]:
+    async def update(db, user: "User") -> bool:
         query = {UserFields.ID.name: user.id}
-        update = {
-            "$set": {
-                UserFields.NAME.name: user.name,
-                UserFields.JAZZLE_STREAK.name: user.jazzle_streak,
-                UserFields.JAZZ_TRIVIA_CORRECT.name: user.jazz_trivia_correct,
-                UserFields.JAZZ_TRIVIA_INCORRECT.name: user.jazz_trivia_incorrect,
-                UserFields.JAZZ_TRIVIA_PERCENTAGE.name: user.jazz_trivia_percentage,
-            }
-        }
-        await db.users.update_one(query, update)
-        return user
+        update = await db.users.update_one(
+            query,
+            {
+                "$set": {
+                    UserFields.NAME.name: user.name,
+                    UserFields.JAZZLE_STREAK.name: user.jazzle_streak,
+                    UserFields.JAZZ_TRIVIA_CORRECT.name: user.jazz_trivia_correct,
+                    UserFields.JAZZ_TRIVIA_INCORRECT.name: user.jazz_trivia_incorrect,
+                    UserFields.JAZZ_TRIVIA_PERCENTAGE.name: user.jazz_trivia_percentage,
+                }
+            },
+        )
+        if update:
+            return True
+        return False
 
     def to_string(self):
         return "USER\n" "Id: " + str(

@@ -1,9 +1,11 @@
 from models.songs import Song
-from utils.constants import spotify
+
+# from utils.constants import spotify
+from spotipy import Spotify
 
 
 # Attempts to retrieve the song metadata from spotify given the parameters
-async def get_song_metadata_from_spotify(song: Song) -> Song:
+async def get_song_metadata_from_spotify(spotify: Spotify, song: Song) -> Song:
     # Check which values are present (not None)
     print("SPOTIFY")
     if song.name is not None:

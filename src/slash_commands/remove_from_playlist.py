@@ -1,7 +1,8 @@
 from math import e
 from models.playlist import Playlist
 from models.songs import Song
-from utils.constants import DB_CLIENT, SERVERS, bot
+from src.models.playback import Playback
+from utils.constants import DB_CLIENT, SERVERS, bot, ydl
 from services import youtube_service
 from discord.ext import commands
 from typing import Any
@@ -31,7 +32,7 @@ async def remove_from_playlist(ctx: commands.Context, index: int) -> None:
     db = DB_CLIENT[str(ctx.guild.id)]
     try:
         # retrieve the song from playlist at index index
-        playlist = await Playlist.retrieve_one(id=index)
+        playlist = await Playlist.retrieve_one(db, id=index)
         if playlist is None:
             await ctx.send(RESPONSE_NOT_FOUND.format(index=index))
             return
@@ -39,16 +40,17 @@ async def remove_from_playlist(ctx: commands.Context, index: int) -> None:
         await ctx.send(RESPONSE_NOT_FOUND.format(index=index))
         return
     # check that the song exists in the youtube playlist
-    if not await youtube_service.check_song_in_playlist(playlist.song):
-        if not await youtube_service.sync_playlist():
+    if not await youtube_service.check_song_in_playlist(ydl, playlist.song):
+        current_playlist = await Playback.get_current_playlist(db)
+        if not await youtube_service.sync_playlist(db, ydl, current_playlist):
             await ctx.send(RESPONSE_SYNC_ERROR, ephemeral=True)
             return
         # Try again
-        playlist = await Playlist.retrieve_one(id=index)
+        playlist = await Playlist.retrieve_one(db, id=index)
         if playlist is None:
             await ctx.send(RESPONSE_NOT_FOUND.format(index=index))
             return
-        if not await youtube_service.check_song_in_playlist(playlist.song):
+        if not await youtube_service.check_song_in_playlist(ydl, playlist.song):
             await ctx.send(RESPONSE_SONG_NOT_FOUND)
             return
 
@@ -63,7 +65,7 @@ async def remove_from_playlist(ctx: commands.Context, index: int) -> None:
             return
     try:
         # remove the song from the playlist
-        await playlist.remove_song(playlist)
+        await playlist.remove_song(db, playlist)
         await ctx.send(RESPONSE_REMOVED.format(ctx=ctx, playlist=playlist))
     except Exception as e:
         await ctx.send(SONG_REMOVED_ERROR)

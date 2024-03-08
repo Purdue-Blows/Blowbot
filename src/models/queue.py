@@ -6,6 +6,7 @@ from models.songs import Song
 from models.users import User
 from models.model_fields import QueueFields
 from models.playlist import Playlist
+from src.slash_commands.get_current_song import get_current_song
 
 
 # A model for the queue table
@@ -17,7 +18,7 @@ class Queue:
         self,
         song: Song,
         user: User,
-        queue_num: int,
+        queue_num: Optional[int] = None,
         played: bool = False,
         id: Optional[int] = None,
     ) -> None:
@@ -32,7 +33,7 @@ class Queue:
     async def create_queue(
         db, song: Song, audio: bytes, user: User, id: Optional[int] = None
     ) -> "Queue":
-        queue_num = await Queue.get_queue_num(db)
+        queue_num = await Queue.get_next_queue_num(db)
         return Queue(
             song=song,
             user=user,
@@ -42,7 +43,7 @@ class Queue:
         )
 
     @staticmethod
-    async def get_queue_num(db) -> int:
+    async def get_next_queue_num(db) -> int:
         highest_queue = await db.queue.find_one(sort=[(QueueFields.QUEUE_NUM.name, -1)])
         print(highest_queue)
         if highest_queue:
@@ -50,6 +51,39 @@ class Queue:
             return queue_num + 1
         else:
             return 1
+
+    @staticmethod
+    async def get_next_song(db) -> Optional[Song]:
+        # Returns the next song in the queue
+        queues = db.queue.find({QueueFields.PLAYED.name: False}).to_list(length=None)
+        current_queue = max(queue[QueueFields.QUEUE_NUM.name] for queue in queues)
+        if not current_queue:
+            return None
+        next_queue = db.queue.find_one(
+            {QueueFields.QUEUE_NUM.name: current_queue.queue_num + 1}
+        )
+        next_song = await Song.retrieve_one(id=next_queue[QueueFields.SONG_ID.name])
+        return next_song
+
+    @staticmethod
+    async def get_previous_song(db) -> Optional[Song]:
+        # Returns the next song in the queue
+        queues = db.queue.find({QueueFields.PLAYED.name: False}).to_list(length=None)
+        current_queue = max(queue[QueueFields.QUEUE_NUM.name] for queue in queues)
+        if not current_queue:
+            return None
+        next_queue = db.queue.find_one(
+            {QueueFields.QUEUE_NUM.name: current_queue.queue_num - 1}
+        )
+        next_song = await Song.retrieve_one(id=next_queue[QueueFields.SONG_ID.name])
+        return next_song
+
+    @staticmethod
+    async def get_current_song(db) -> Optional[Song]:
+        queues = db.queue.find({QueueFields.PLAYED.name: False}).to_list(length=None)
+        current_queue = max(queue[QueueFields.QUEUE_NUM.name] for queue in queues)
+        song = await Song.retrieve_one(id=current_queue[QueueFields.SONG_ID.name])
+        return song
 
     @staticmethod
     def log_doc(queue: dict) -> None:
@@ -79,11 +113,13 @@ class Queue:
     # Adds a queue instance to the queue table
     @staticmethod
     async def add(db, queue: "Queue") -> Optional["Queue"]:
-        # TODO: Check that song id and user id are in the database
         try:
             collection = db["queue"]
             # If the song isn't already in songs, add it
             song = await Song.add(queue.song)
+
+            if queue.queue_num is None:
+                queue.queue_num = await Queue.get_next_queue_num(db)
 
             if song:
                 result = await collection.insert_one(
@@ -111,6 +147,11 @@ class Queue:
                 }
             )
             return queue
+
+    @staticmethod
+    async def get_queue_count(db) -> int:
+        count = await db.queue.count_documents()
+        return count
 
     @staticmethod
     async def retrieve_many(
@@ -202,20 +243,26 @@ class Queue:
         return queue
 
     @staticmethod
-    async def clear_queue(db) -> None:
+    async def clear_queue(db) -> bool:
         collection = db["queue"]
-        await collection.delete_many({})
+        delete = await collection.delete_many({})
+        if delete:
+            return True
+        return False
 
     @staticmethod
-    async def remove_song(db, queue: "Queue") -> None:
+    async def remove_song(db, queue: "Queue") -> bool:
         collection = db["queue"]
-        await collection.delete_one({QueueFields.ID.name: queue.id})
+        delete = await collection.delete_one({QueueFields.ID.name: queue.id})
+        if delete:
+            return True
+        return False
 
     @staticmethod
-    async def update(db, queue: "Queue") -> Optional["Queue"]:
+    async def update(db, queue: "Queue") -> bool:
         collection = db["queue"]
         await Song.update(queue.song)
-        await collection.update_one(
+        update = await collection.update_one(
             {"_id": queue.id},
             {
                 "$set": {
@@ -226,7 +273,9 @@ class Queue:
                 }
             },
         )
-        return queue
+        if update:
+            return True
+        return False
 
     def to_string(self):
         return (
