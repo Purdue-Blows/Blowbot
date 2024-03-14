@@ -2,73 +2,56 @@ from enum import Enum
 from typing import Optional, List, Union
 from models.model_fields import SongFields
 
-from utils.constants import DB_CLIENT, ydl
-from youtube_service import download_song_from_youtube
+from utils.constants import Base, ydl
+from services.download_song_from_youtube import download_song_from_youtube
+from sqlalchemy.orm import Session
+from sqlalchemy import Column, Integer, String, LargeBinary
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session
+from sqlalchemy.util import concurrency
 
 
-class Song:
-    def __init__(
-        self,
-        url: str,
-        name: Optional[str] = None,
-        audio: Optional[bytes] = None,
-        artist: Optional[str] = None,
-        album: Optional[str] = None,
-        release_date: Optional[str] = None,
-        id: Optional[int] = None,
-    ):
-        self.id = id
-        self.name = name
-        self.artist = artist
-        self.url = url
-        self.album = album
-        self.release_date = release_date
-        self.audio = audio
+class Song(Base):
+    __tablename__ = "songs"
 
-    @staticmethod
-    def log_doc(song: dict) -> None:
-        print("SONG DOC")
-        print(f"Id: {song[SongFields.ID.name]}")
-        print(f"Name: {song[SongFields.NAME.name]}")
-        print(f"Artist: {song[SongFields.ARTIST.name]}")
-        print(f"Audio: {str(song[SongFields.AUDIO.name])[0:20]}")
-        print(f"URL: {song[SongFields.URL.name]}")
-        print(f"Album: {song[SongFields.ALBUM.name]}")
-        print(f"Release Date: {song[SongFields.RELEASE_DATE.name]}")
+    id = Column(Integer, primary_key=True, nullable=False, unique=True)
+    name = Column(String, nullable=False)
+    artist = Column(String)
+    url = Column(String, nullable=False, unique=True)
+    album = Column(String)
+    release_date = Column(String)
+    audio = Column(LargeBinary, nullable=False)
 
     @staticmethod
     def from_map(map: dict) -> "Song":
         return Song(
-            map[SongFields.ID.name],
-            map[SongFields.NAME.name],
-            map[SongFields.ARTIST.name],
-            map[SongFields.URL.name],
-            map[SongFields.ALBUM.name],
-            map[SongFields.RELEASE_DATE.name],
-            map[SongFields.AUDIO.name],
+            id=map[SongFields.ID.value],
+            name=map[SongFields.NAME.value],
+            artist=map[SongFields.ARTIST.value],
+            url=map[SongFields.URL.value],
+            album=map[SongFields.ALBUM.value],
+            release_date=map[SongFields.RELEASE_DATE.value],
+            audio=map[SongFields.AUDIO.value],
         )
 
-    # Add the song to the database
     @staticmethod
-    async def add(song: "Song") -> "Song":
-        collection = DB_CLIENT.songs.songs
-        if song.audio is None:
-            song.audio = await download_song_from_youtube(ydl, song.url)
-        result = await collection.insert_one(
-            {
-                SongFields.NAME.name: song.name,
-                SongFields.ARTIST.name: song.artist,
-                SongFields.URL.name: song.url,
-                SongFields.AUDIO.name: song.audio,
-                SongFields.ALBUM.name: song.album,
-                SongFields.RELEASE_DATE.name: song.release_date,
-            }
-        )
-        song.id = result.inserted_id
-        return song
+    def add_sync(session: Session, song: "Song") -> "Song":
+        try:
+            session.add(song)
+            session.commit()
+            return song
+        except Exception as e:
+            session.rollback()
+            print(f"Error occurred while adding song: {e}")
+            raise e
 
     @staticmethod
-    async def retrieve_many(
+    async def add(session: Session, song: "Song"):
+        return await concurrency.greenlet_spawn(Song.add_sync, session, song)
+
+    @staticmethod
+    def retrieve_many_sync(
+        session: Session,
         name: Optional[str] = None,
         artist: Optional[str] = None,
         url: Optional[str] = None,
@@ -76,79 +59,125 @@ class Song:
         release_date: Optional[str] = None,
     ) -> List["Song"]:
         try:
-            collection = DB_CLIENT.songs.songs
-            query = {}
+            query = session.query(Song)
 
             if name is not None:
-                query[SongFields.NAME.name] = name
+                query = query.filter(Song.name == name)
             if artist is not None:
-                query[SongFields.ARTIST.name] = artist
+                query = query.filter(Song.artist == artist)
             if url is not None:
-                query[SongFields.URL.name] = url
+                query = query.filter(Song.url == url)
             if album is not None:
-                query[SongFields.ALBUM.name] = album
+                query = query.filter(Song.album == album)
             if release_date is not None:
-                query[SongFields.RELEASE_DATE.name] = release_date
+                query = query.filter(Song.release_date == release_date)
 
-            results = await collection.find(query).to_list(length=None)
+            results = query.all()
 
-            return [Song.from_map(result) for result in results]
+            return results
         except Exception as e:
+            session.rollback()
             print(f"Error occurred while retrieving songs: {e}")
             return []
 
     @staticmethod
-    async def retrieve_one(
+    async def retrieve_many(
+        session: Session,
+        name: Optional[str] = None,
+        artist: Optional[str] = None,
+        url: Optional[str] = None,
+        album: Optional[str] = None,
+        release_date: Optional[str] = None,
+    ) -> List["Song"]:
+        return await concurrency.greenlet_spawn(
+            Song.retrieve_many_sync, session, name, artist, url, album, release_date
+        )
+
+    @staticmethod
+    def retrieve_one_sync(
+        session: Session,
         id: Optional[int] = None,
         name: Optional[str] = None,
         artist: Optional[str] = None,
         url: Optional[str] = None,
         album: Optional[str] = None,
         release_date: Optional[str] = None,
-    ) -> Optional["Song"]:
-        collection = DB_CLIENT.songs.songs
-        query = {}
+    ) -> "Song":
+        try:
+            print("Before initial song query")
+            query = session.query(Song)
 
-        if id:
-            query[SongFields.ID.name] = id
-        if name:
-            query[SongFields.NAME.name] = name
-        if artist:
-            query[SongFields.ARTIST.name] = artist
-        if url:
-            query[SongFields.URL.name] = url
-        if album:
-            query[SongFields.ALBUM.name] = album
-        if release_date:
-            query[SongFields.RELEASE_DATE.name] = release_date
+            if id:
+                query = query.filter(Song.id == id)
+            if name:
+                query = query.filter(Song.name == name)
+            if artist:
+                query = query.filter(Song.artist == artist)
+            if url:
+                query = query.filter(Song.url == url)
+            if album:
+                query = query.filter(Song.album == album)
+            if release_date:
+                query = query.filter(Song.release_date == release_date)
 
-        result = await collection.find_one(query)
+            print("Before song query retrieval")
+            result = query.first()
+            print("After song query retrieval")
 
-        return Song.from_map(result) if result else None
+            return result
+        except Exception as e:
+            session.rollback()
+            print(f"Error occurred while retrieving song: {e}")
+            raise e
 
     @staticmethod
-    async def update(song: "Song") -> bool:
-        collection = DB_CLIENT.songs.songs
-        update = await collection.update_one(
-            {"id": song.id},
-            {
-                "$set": {
-                    SongFields.NAME.name: song.name,
-                    SongFields.ARTIST.name: song.artist,
-                    SongFields.AUDIO.name: song.audio,
-                    SongFields.URL.name: song.url,
-                    SongFields.ALBUM.name: song.album,
-                    SongFields.RELEASE_DATE.name: song.release_date,
-                }
-            },
+    async def retrieve_one(
+        session: Session,
+        id: Optional[int] = None,
+        name: Optional[str] = None,
+        artist: Optional[str] = None,
+        url: Optional[str] = None,
+        album: Optional[str] = None,
+        release_date: Optional[str] = None,
+    ) -> "Song":
+        return await concurrency.greenlet_spawn(
+            Song.retrieve_one_sync, session, id, name, artist, url, album, release_date
         )
-        if update:
-            return True
-        return False
+
+    @staticmethod
+    def update_sync(session: Session, song: "Song") -> bool:
+        try:
+            update = session.merge(song)
+            if update:
+                session.commit()
+                return True
+            session.rollback()
+            return False
+        except Exception as e:
+            session.rollback()
+            print(f"Error occurred while updating song: {e}")
+            return False
+
+    @staticmethod
+    async def update(session: Session, song: "Song") -> bool:
+        return await concurrency.greenlet_spawn(Song.update_sync, session, song)
+
+    @staticmethod
+    def log_map(song: dict) -> None:
+        print("SONG")
+        print(f"Id: {song[SongFields.ID.value]}")
+        print(f"Name: {song[SongFields.NAME.value]}")
+        print(f"Artist: {song[SongFields.ARTIST.value]}")
+        print(f"Audio: {str(song[SongFields.AUDIO.value])[0:20]}")
+        print(f"URL: {song[SongFields.URL.value]}")
+        print(f"Album: {song[SongFields.ALBUM.value]}")
+        print(f"Release Date: {song[SongFields.RELEASE_DATE.value]}")
 
     @staticmethod
     def format_song(song: "Song") -> str:
-        return f"Name: {song.name}\nArtist: {song.artist}\nURL: {song.url}\nAlbum: {song.album}\nRelease Date: {song.release_date}"
+        audio_preview = song.audio[0:20] if song.audio is not None else None
+        return f"Name: {song.name}\nArtist: {song.artist}\nURL: {song.url}\nAlbum: {song.album}\nRelease Date: {song.release_date}\nAudio: {audio_preview}"
 
     def to_string(self) -> str:
-        return f"SONG\nName: {self.name}\nArtist: {self.artist}\nURL: {self.url}\nAlbum: {self.album}\nRelease Date: {self.release_date}"
+        audio_preview = self.audio[0:20] if self.audio is not None else None
+        return f"SONG\nName: {self.name}\nArtist: {self.artist}\nURL: {self.url}\nAlbum: {self.album}\nRelease Date: {self.release_date}\nAudio: {audio_preview}"

@@ -1,3 +1,5 @@
+from locale import currency
+import os
 from typing import Union
 from models.songs import Song
 
@@ -10,13 +12,15 @@ import discord
 import io
 from models.playlist import Playlist
 from models.queue import Queue
+from utils.constants import BASE_DIR, Session
 
 
 # Checks if the bot is currently playing a song
 async def is_bot_playing(bot: Bot) -> bool:
     for vc in bot.voice_clients:
-        if vc:
-            return True
+        if isinstance(vc, VoiceClient):
+            if vc.is_playing():
+                return True
     return False
 
 
@@ -60,7 +64,14 @@ async def play_song(bot: Bot, audio: bytes) -> None:
         for vc in bot.voice_clients:
             if vc:
                 if isinstance(vc, VoiceClient):
-                    vc.play(discord.FFmpegPCMAudio(io.BytesIO(audio)))
+                    # with open(os.path.join(BASE_DIR, "temp.mp3"), "wb") as f:
+                    #     f.write(audio)
+                    #     print(os.path.join(BASE_DIR, "temp.mp3"))
+                    #     vc.play(
+                    #         discord.FFmpegPCMAudio(os.path.join(BASE_DIR, "temp.mp3"))
+                    #     )
+                    # os.remove(os.path.join(BASE_DIR, "temp.mp3"))
+                    vc.play(discord.FFmpegPCMAudio(io.BytesIO(audio), pipe=True))
     return
 
 

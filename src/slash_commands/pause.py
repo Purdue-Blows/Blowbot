@@ -1,31 +1,32 @@
+import traceback
 from typing import Any
 from discord.ext import commands
-from src.models.playback import Playback
-from src.models.playlist import Playlist
-from utils.constants import DB_CLIENT, SERVERS, bot
+from models.playback import Playback
+from models.playlist import Playlist
+from utils.constants import SERVERS, Session, bot
 from services import discord_service
+from utils.messages import GENERIC_ERROR, NO_GUILD_ERROR
 
 
 PAUSE_MESSAGE = "Blowbot was paused by {ctx.author.name}"
-NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
-GENERIC_ERROR = "There was an error trying to pause"
 
 
-@bot.command(
+@bot.slash_command(
     name="pause",
     description="Pause Blowbot",
     guild_ids=SERVERS,
 )
-async def pause(ctx: commands.Context) -> Any:
+async def pause(ctx) -> Any:
     if ctx.guild is None:
-        raise Exception(NO_GUILD_MESSAGE)
-    try:
-        db = DB_CLIENT[str(ctx.guild.id)]
-        # pause the current song
-        await discord_service.pause(bot)
-        # return a success message as confirmation
-        await ctx.send(PAUSE_MESSAGE, ephemeral=True)
-        return
-    except Exception:
-        await ctx.send(GENERIC_ERROR, ephemeral=True)
-        return
+        raise Exception(NO_GUILD_ERROR)
+    with Session() as session:
+        try:
+            # pause the current song
+            await discord_service.pause(bot)
+            # return a success message as confirmation
+            await ctx.send(PAUSE_MESSAGE.format(ctx=ctx))
+            return
+        except Exception:
+            await ctx.respond(GENERIC_ERROR.format("pause"), ephemeral=True)
+            traceback.print_exc()
+            return

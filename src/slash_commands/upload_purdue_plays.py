@@ -1,15 +1,15 @@
-from typing import Any
-from discord.ext import commands
+# Upload a submission as part of the specified Purdue Plays challenge
 from utils.constants import SERVERS, Session, bot
+from discord.ext import commands
 from utils.messages import NO_GUILD_ERROR, NOT_IMPLEMENTED_ERROR
 
 
 @bot.slash_command(
-    name="profile",
-    description="Get information about your current user profile",
+    name="upload_purdue_plays",
+    description="Upload a submission to the specified Purdue Plays challenge",
     guild_ids=SERVERS,
 )
-async def profile(ctx) -> Any:
+async def get_purdue_plays(ctx, challenge_name) -> None:
     if ctx.guild is None:
         raise Exception(NO_GUILD_ERROR)
     with Session() as session:

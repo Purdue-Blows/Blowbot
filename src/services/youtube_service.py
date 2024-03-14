@@ -1,18 +1,19 @@
+from sqlalchemy.exc import IntegrityError
+
 # Attempts to retrieve a song from youtube
 import os
 from yt_dlp import YoutubeDL
-
-from redis import DataError
+from services.download_song_from_youtube import download_song_from_youtube
 from models.playlist import Playlist
 from models.songs import Song
-from models.users import User
 from services import spotify_service
-from services import youtube_service
+from models.model_fields import SongFields
 from utils.constants import (
     MAX_PLAYLIST_LENGTH,
     PURDUE_BLOWS_PLAYLISTS,
     PlaylistNames,
     spotify,
+    gemini,
 )
 from utils.escape_special_characters import escape_special_characters
 from utils.to_mp3_file import to_mp3_file
@@ -25,29 +26,41 @@ YOUTUBE_DOWNLOAD_ERROR = "Could not download the information from youtube"
 # Attempts to retrieve the song metadata from a youtube url
 async def get_song_metadata_from_youtube(ydl: YoutubeDL, song: Song) -> Song:
     # Validate that the url of the song is a youtube url
-    if not await validate_youtube_url(song.url):
+    if not await validate_youtube_url(song.url):  # type: ignore
         return song
 
     # Retrieve song data using the youtube api
     info_dict = ydl.extract_info(song.url, download=False)
     if info_dict is None:
-        raise DataError(YOUTUBE_DOWNLOAD_ERROR)
+        raise ValueError(YOUTUBE_DOWNLOAD_ERROR)
+
+    # print("YOUTUBE")
+    # print(info_dict)
 
     # Return a new song object with any None fields updated appropriately
     if song.name is None:
-        song.name = info_dict.get("title")
+        if info_dict.get(SongFields.NAME.name) != None:
+            song.name = info_dict.get(SongFields.NAME.name)  # type: ignore
 
+    # YT-ARTIST data isn't as consistent as spotify
     if song.artist is None:
-        if info_dict.get("artist") != None:
-            song.artist = info_dict.get("artist")
+        artist = await gemini.generate_content_async(
+            f"""
+        Here is the youtube video title and description of a song. I want you to extract 
+        the artist from it and ONLY return the artist as an output.
+        {info_dict.get("title")} {info_dict.get("description")}
+        """
+        )
+        # if info_dict.get(SongFields.ARTIST.name) != None:
+        song.artist = artist.text  # type: ignore
 
     if song.album is None:
-        if info_dict.get("album") != None:
-            song.album = info_dict.get("album")
+        if info_dict.get(SongFields.ALBUM.name) != None:
+            song.album = info_dict.get(SongFields.ALBUM.name)  # type: ignore
 
     if song.release_date is None:
-        if info_dict.get("release_date") != None:
-            song.release_date = info_dict.get("release_date")
+        if info_dict.get(SongFields.RELEASE_DATE.name) != None:
+            song.release_date = info_dict.get(SongFields.RELEASE_DATE.name)  # type: ignore
 
     return song
 
@@ -66,33 +79,6 @@ async def validate_youtube_url(url: str) -> bool:
 #     pass
 
 
-# Attempts to download the song at url from youtube
-async def download_song_from_youtube(ydl: YoutubeDL, url: str) -> bytes:
-    # Use the yt-dlp library to download the song
-    info_dict = ydl.extract_info(url, download=True)
-    if info_dict is None:
-        raise DataError(YOUTUBE_DOWNLOAD_ERROR)
-    filepath = "%(title)s.%(ext)s"
-    title = info_dict.get("title")
-    if title != None:
-        title = escape_special_characters(title)
-    ext = info_dict.get("ext")
-    if ext != None:
-        ext = to_mp3_file(ext)
-    downloaded_file_path = filepath % {"title": title, "ext": ext}
-    # Rename file
-    os.rename(
-        os.path.join(os.getcwd(), "temp.mp3"),
-        os.path.join(os.getcwd(), downloaded_file_path),
-    )
-    # Open file
-    with open(os.path.join(os.getcwd(), downloaded_file_path), "rb") as file:
-        audio = file.read()
-    # Remove file
-    os.remove(os.path.join(os.getcwd(), downloaded_file_path))
-    return audio
-
-
 # Check if song exists in the youtube playlist
 # NOTE: does not add the song to the playlist
 async def check_song_in_playlist(ydl: YoutubeDL, song: Song) -> bool:
@@ -101,7 +87,7 @@ async def check_song_in_playlist(ydl: YoutubeDL, song: Song) -> bool:
 
     # Iterate over videos in playlist
     if playlist_dict is None:
-        raise DataError(YOUTUBE_DOWNLOAD_ERROR)
+        raise ValueError(YOUTUBE_DOWNLOAD_ERROR)
     for video in playlist_dict["entries"]:
         if not video:
             continue
@@ -114,7 +100,9 @@ async def check_song_in_playlist(ydl: YoutubeDL, song: Song) -> bool:
 
 
 # A general utility method to ensure that the YouTube playlist and db are synced
-async def sync_playlist(db, ydl: YoutubeDL, playlist_name: PlaylistNames) -> bool:
+async def sync_playlist(
+    session, guild_id, ydl: YoutubeDL, playlist_name: PlaylistNames
+) -> bool:
     # Ensure that the entire playlist can be retrieved
     ydl.params["playlist_items"] = "1-" + str(
         MAX_PLAYLIST_LENGTH
@@ -125,7 +113,7 @@ async def sync_playlist(db, ydl: YoutubeDL, playlist_name: PlaylistNames) -> boo
     )
 
     if playlist_dict is None:
-        raise DataError(YOUTUBE_DOWNLOAD_ERROR)
+        raise ValueError(YOUTUBE_DOWNLOAD_ERROR)
 
     ydl.params["playlist_items"] = "1"  # Back to fetching one song
 
@@ -137,15 +125,15 @@ async def sync_playlist(db, ydl: YoutubeDL, playlist_name: PlaylistNames) -> boo
         # If the url isn't in the playlist table in the database, add it
         try:
             print("Attempting to retrieve " + video["title"] + "from playlist")
-            song = await Song.retrieve_one(url=video["webpage_url"])
+            song = await Song.retrieve_one(session, url=video["webpage_url"])
             result = None
             if song:
-                result = await Playlist.retrieve_one(db, song_id=song.id)
+                result = await Playlist.retrieve_one(session, guild_id=guild_id, song_id=song.id)  # type: ignore
             if result is None:
                 # Create a song for the url
                 song = Song(
                     name=video["title"],
-                    artist=video["uploader"],
+                    # artist=video["uploader"],
                     url=video["webpage_url"],
                 )
                 # Ensure song data is correct
@@ -156,10 +144,7 @@ async def sync_playlist(db, ydl: YoutubeDL, playlist_name: PlaylistNames) -> boo
                     or song.release_date is None
                 ):
                     # Get any data possible from youtube
-                    song = await youtube_service.get_song_metadata_from_youtube(
-                        ydl, song
-                    )
-                    print(song.to_string())
+                    song = await get_song_metadata_from_youtube(ydl, song)
                     # Get any data possible from spotify
                     if (
                         song.name is None
@@ -170,24 +155,30 @@ async def sync_playlist(db, ydl: YoutubeDL, playlist_name: PlaylistNames) -> boo
                         song = await spotify_service.get_song_metadata_from_spotify(
                             spotify, song
                         )
-                # Download the video associated with the url
-                # Using the id of the song, add it to the queue table
-                print("Attempting to add " + video["title"] + "from playlist")
-                result = await Playlist.add(
-                    db,
-                    Playlist(
-                        song=song,
-                        playlist_name=playlist_name.name,
-                        playlist_num=video["playlist_index"],
-                        played=False,
-                        user=None,
-                    ),
-                )
-                print(result)
-                if result is None:
-                    print("Could not add " + video["title"] + "to playlist")
-                    return False
+            if song.audio is None:
+                song.audio = await download_song_from_youtube(ydl, video["webpage_url"])  # type: ignore
+            # Download the video associated with the url
+            # Using the id of the song, add it to the queue table
+            print("Attempting to add " + video["title"] + "from playlist")
+            result = await Playlist.add(
+                session,
+                Playlist(
+                    song=song,
+                    playlist_name=playlist_name,
+                    playlist_num=video["playlist_index"],
+                    played=False,
+                    user=None,
+                    guild_id=guild_id,
+                ),
+            )
+            print(result)
+            if result is None:
+                print("Could not add " + video["title"] + "to playlist")
+                return False
+        except IntegrityError as e:
+            continue
         except Exception as e:
+            print(type(e))
             print("An error occurred while syncing the playlist: " + str(e))
             return False
     return True

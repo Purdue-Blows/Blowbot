@@ -1,67 +1,59 @@
 import random
 from models.playlist import Playlist
-from discord_service import play_song
-from utils.constants import db
-from utils.state import CURRENT_SONG, QUEUE_NUM
+from models.queue import Queue
+from services.discord_service import play_song
+from models.playback import Playback
+from utils.messages import COULD_NOT_FIND_ERROR
+from utils.constants import Session, bot
 from discord.ext import commands
 
 END_OF_PLAYLIST = ":confetti_ball: The entire playlist has been listened to! It will now repeat! :confetti_ball:"
-DB_ERROR = "An error occurred while trying to update the queue"
 
 
-async def on_song_over(ctx: commands.Context) -> None:
-    global QUEUE_NUM
-    global CURRENT_SONG
-    if CURRENT_SONG is None:
-        return
-    if await db.queue.find_one({"song_id": CURRENT_SONG.id}) is not None:
-        QUEUE_NUM += 1
-        CURRENT_SONG = await db.queue.find_one({"_id": QUEUE_NUM})
-        if CURRENT_SONG is None:
-            # Get a random song from the playlist
-            unplayed_songs = await db.playlist.find({"played": False}).to_list(
-                length=None
+# Custom on_track_end event
+@bot.listen()
+async def on_track_end(member, before, after):
+    print("on_track_end")
+    if member.bot and before.channel and not after.channel:
+        # Bot has stopped playing audio
+        await on_song_over(member.guild)
+
+
+async def on_song_over(guild) -> None:
+    print("on_song_over")
+    with Session() as session:
+        try:
+            playback = await Playback.retrieve_one(session, guild.id)
+            if playback is None:
+                raise Exception(COULD_NOT_FIND_ERROR.format("playback instance"))
+            queue = await Queue.retrieve_one(session, guild.id)
+            playlist = await Playlist.retrieve_one(
+                session,
+                id=playback.current_playlist_index,  # type: ignore
+                playlist_name=playback.current_playlist,  # type: ignore
             )
-            if len(unplayed_songs) == 0:
-                await ctx.send(END_OF_PLAYLIST)
-                await Playlist.reset_playlist()
-                CURRENT_SONG = random.choice(
-                    await db.playlist.find({}).to_list(length=None)
+            if playlist is None:
+                raise Exception(
+                    COULD_NOT_FIND_ERROR.format(
+                        f"playlist at index {playback.current_playlist_index}"
+                    )
                 )
-                await play_song()
+            # Update the values
+            playlist.played = True  # type: ignore
+            playback.current_playlist_index += 1  # type: ignore
+            session.commit()
+            # Retrieve new playlist instance
+            song = await Playlist.get_next_song(session, playlist.guild_id)
+            if song is None:
+                await guild.text_channels[0].send(END_OF_PLAYLIST)
+                # Reset the playlist, but don't play a new song
+                await Playlist.reset_playlist(session, playlist_name=playback.current_playlist)  # type: ignore
                 return
+            if song.audio is not None:
+                # Play new song
+                await play_song(bot, song.audio)  # type: ignore
             else:
-                # Get a random song from the unplayed songs in the playlist
-                CURRENT_SONG = random.choice(unplayed_songs)
-        await play_song()
-        return
-    elif await db.playlist.find_one({"song_id": CURRENT_SONG.id}) is not None:
-        # Mark the CURRENT_SONG as played
-        result = await db.playlist.update_one(
-            {"_id": CURRENT_SONG.id}, {"$set": {"played": True}}
-        )
-        if not result:
-            raise Exception("An error occurred while trying to update the playlist")
-        # Check if there are any new songs in the queue
-        next_song = await db.queue.find_one({"_id": QUEUE_NUM})
-        if next_song is not None:
-            CURRENT_SONG = next_song
-            QUEUE_NUM += 1
-            await play_song()
-            return
-        else:
-            # Get the next song from the playlist
-            unplayed_songs = await db.playlist.find({"played": False}).to_list(
-                length=None
-            )
-            if len(unplayed_songs) == 0:
-                await ctx.send(END_OF_PLAYLIST)
-                await Playlist.reset_playlist()
-                CURRENT_SONG = random.choice(unplayed_songs)
-                return
-            else:
-                CURRENT_SONG = random.choice(unplayed_songs)
-            await play_song()
-            return
-    else:
-        raise Exception("The song is not in the queue or playlist")
+                raise Exception(COULD_NOT_FIND_ERROR.format("song"))
+        except Exception as e:
+            session.rollback()
+            raise e

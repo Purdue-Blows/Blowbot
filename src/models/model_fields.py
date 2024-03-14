@@ -25,6 +25,7 @@ class PlaylistFields(Enum):
     USER_ID = "user_id"
     PLAYLIST_NUM = "playlist_num"
     PLAYLIST_NAME = "playlist_name"
+    GUILD_ID = "guild_id"
 
     @classmethod
     def from_string(cls, value):
@@ -40,6 +41,7 @@ class QueueFields(Enum):
     USER_ID = "user_id"
     QUEUE_NUM = "queue_num"
     PLAYED = "played"
+    GUILD_ID = "guild_id"
 
     @classmethod
     def from_string(cls, value):
@@ -56,6 +58,7 @@ class UserFields(Enum):
     JAZZ_TRIVIA_CORRECT = "jazz_trivia_correct"
     JAZZ_TRIVIA_INCORRECT = "jazz_trivia_incorrect"
     JAZZ_TRIVIA_PERCENTAGE = "jazz_trivia_percentage"
+    GUILD_ID = "guild_id"
 
     @classmethod
     def from_string(cls, value):
@@ -70,6 +73,7 @@ class PlaybackFields(Enum):
     CURRENT_PLAYLIST = "current_playlist"
     CURRENT_PLAYLIST_INDEX = "current_playlist_index"
     CURRENTLY_PLAYING = "currently_playing"
+    GUILD_ID = "guild_id"
 
     @classmethod
     def from_string(cls, value):

@@ -4,3 +4,4 @@ venv
 virtualenv
 __pycache__
 .cache
+blowbot.db

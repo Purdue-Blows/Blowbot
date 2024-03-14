@@ -1,22 +1,24 @@
+import traceback
 from typing import List, Optional
+import discord
 from discord.ext import commands
 from models.playback import Playback
-from src.models.playlist import Playlist
+from models.playlist import Playlist
 from utils.constants import (
-    DB_CLIENT,
     PURDUE_BLOWS_PLAYLISTS,
     SERVERS,
     PlaylistNames,
+    Session,
     bot,
 )
+from utils.messages import GENERIC_ERROR, NO_GUILD_ERROR
 
-NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
-GENERIC_ERROR = "Playlist could not be shuffled"
+
 SUCCESS_MESSAGE = "Playlist shuffled"
 INVALID_PLAYLIST_NAME = "Invalid playlist name"
 
 
-@bot.command(
+@bot.slash_command(
     name="shuffle_playlist",
     description="Shuffles the currently unplayed songs of the currently playing playlist",
     # TODO: come back to this and look into autocomplete options
@@ -34,21 +36,38 @@ INVALID_PLAYLIST_NAME = "Invalid playlist name"
     #     ],
     guild_ids=SERVERS,
 )
-async def shuffle_playlist(ctx: commands.Context, playlist_name: Optional[str]) -> None:
+async def shuffle_playlist(
+    ctx,
+    playlist_name: discord.Option(
+        str,
+        choices=[PlaylistNames.value for PlaylistNames in PlaylistNames],
+        description="The name of the playlist",
+        required=False,
+    ),  # type: ignore
+) -> None:
     if ctx.guild is None:
-        raise Exception(NO_GUILD_MESSAGE)
-    db = DB_CLIENT[str(ctx.guild.id)]
-    # Shuffles the currently unplayed songs of the currently playing playlist
-    try:
-        if playlist_name in PlaylistNames:
-            shuffle = await Playlist.shuffle(
-                db, PlaylistNames.from_string(playlist_name)
-            )
-            if shuffle:
-                await ctx.send(SUCCESS_MESSAGE, ephemeral=True)
+        raise Exception(NO_GUILD_ERROR)
+    with Session() as session:
+        # Shuffles the currently unplayed songs of the currently playing playlist
+        try:
+            if playlist_name in PlaylistNames:
+                shuffle = await Playlist.shuffle(
+                    session,
+                    ctx.guild.id,
+                    PlaylistNames.from_string(
+                        playlist_name.value,  # type: ignore
+                    ),
+                )
+                if shuffle:
+                    await ctx.send(SUCCESS_MESSAGE)
+                    return
+                else:
+                    await ctx.respond(
+                        GENERIC_ERROR.format("shuffle_playlist"), ephemeral=True
+                    )
+                    return
             else:
-                await ctx.send(GENERIC_ERROR, ephemeral=True)
-        else:
-            await ctx.send(INVALID_PLAYLIST_NAME, ephemeral=True)
-    except Exception:
-        await ctx.send(GENERIC_ERROR, ephemeral=True)
+                await ctx.respond(INVALID_PLAYLIST_NAME, ephemeral=True)
+        except Exception:
+            await ctx.respond(GENERIC_ERROR.format("shuffle_playlist"), ephemeral=True)
+            traceback.print_exc()

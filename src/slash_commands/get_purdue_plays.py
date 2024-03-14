@@ -1,15 +1,15 @@
-from typing import Any
-from discord.ext import commands
+# Get information about current Purdue Plays challenges
 from utils.constants import SERVERS, Session, bot
+from discord.ext import commands
 from utils.messages import NO_GUILD_ERROR, NOT_IMPLEMENTED_ERROR
 
 
 @bot.slash_command(
-    name="profile",
-    description="Get information about your current user profile",
+    name="get_purdue_plays",
+    description="Get information about current Purdue Plays challenges",
     guild_ids=SERVERS,
 )
-async def profile(ctx) -> Any:
+async def get_purdue_plays(ctx) -> None:
     if ctx.guild is None:
         raise Exception(NO_GUILD_ERROR)
     with Session() as session:
