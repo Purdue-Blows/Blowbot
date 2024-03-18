@@ -1,12 +1,11 @@
 import traceback
-from discord.ext import commands
 from typing import Any, Optional, Dict
 from models.queue import Queue
 from models.users import User
 from services import spotify_service
 from utils.constants import SERVERS, Session, bot, ydl, spotify
 from services import youtube_service
-from utils.messages import NO_GUILD_ERROR
+from utils.messages import CONNECTION_ERROR, NO_GUILD_ERROR
 from models.songs import Song
 
 # Define constant string literals

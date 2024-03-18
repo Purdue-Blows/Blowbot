@@ -1,7 +1,6 @@
 # Upload a submission as part of the specified Purdue Plays challenge
-from utils.constants import SERVERS, Session, bot
-from discord.ext import commands
-from utils.messages import NO_GUILD_ERROR, NOT_IMPLEMENTED_ERROR
+from utils.constants import SERVERS, Session, bot, yt
+from utils.messages import CONNECTION_ERROR, NO_GUILD_ERROR, NOT_IMPLEMENTED_ERROR
 
 
 @bot.slash_command(
@@ -12,5 +11,13 @@ from utils.messages import NO_GUILD_ERROR, NOT_IMPLEMENTED_ERROR
 async def get_purdue_plays(ctx, challenge_name) -> None:
     if ctx.guild is None:
         raise Exception(NO_GUILD_ERROR)
+    if yt.refresh_token == None:
+        await ctx.respond(
+            CONNECTION_ERROR.format(
+                "YouTube", "the current refresh token is invalid or has expired"
+            ),
+            ephemeral=True,
+        )
+        return
     with Session() as session:
         await ctx.respond(NOT_IMPLEMENTED_ERROR, ephemeral=True)

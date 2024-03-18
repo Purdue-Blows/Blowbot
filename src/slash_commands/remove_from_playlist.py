@@ -1,13 +1,9 @@
-from math import e
 import traceback
 from models.playlist import Playlist
-from models.songs import Song
 from models.playback import Playback
-from utils.constants import SERVERS, Session, bot, ydl
+from utils.constants import SERVERS, Session, bot, ydl, yt
 from services import youtube_service
-from discord.ext import commands
-from typing import Any
-from utils.messages import ADMIN_ONLY_ERROR, NO_GUILD_ERROR
+from utils.messages import ADMIN_ONLY_ERROR, CONNECTION_ERROR, NO_GUILD_ERROR
 
 
 RESPONSE_NOT_FOUND = "Could not find the playlist instance with id: {index}"
@@ -28,6 +24,14 @@ NO_GUILD_MESSAGE = "You must be in a guild to use blowbot"
 async def remove_from_playlist(ctx, index: int) -> None:
     if ctx.guild is None:
         raise Exception(NO_GUILD_ERROR)
+    if yt.refresh_token == None:
+        await ctx.respond(
+            CONNECTION_ERROR.format(
+                "YouTube", "the current refresh token is invalid or has expired"
+            ),
+            ephemeral=True,
+        )
+        return
     with Session() as session:
         try:
             # retrieve the song from playlist at index index

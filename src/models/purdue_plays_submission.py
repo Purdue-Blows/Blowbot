@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import (
     BigInteger,
     Column,
-    Enum,
     Integer,
     String,
     Boolean,
@@ -31,18 +30,13 @@ COULD_NOT_GET_PLAYLIST_NUM = "Could not get playlist num"
 PLAYBACK_ISSUE = "There was an issue with playback"
 
 
-class Playlist(Base):
-    __tablename__ = "playlists"
+class PurduePlaysSubmission(Base):
+    __tablename__ = "purdue_plays_submission"
 
     id = Column(Integer, primary_key=True, nullable=False, unique=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
-    played = Column(Boolean, nullable=False)
-    playlist_num = Column(Integer, nullable=False)
-    playlist_name = Column(Enum(PlaylistNames), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"))
-    guild_id = Column(BigInteger, nullable=False)
+    notes = Column(String)
 
-    song = relationship("Song")
     user = relationship("User")
 
     @staticmethod

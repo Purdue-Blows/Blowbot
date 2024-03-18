@@ -5,3 +5,4 @@ virtualenv
 __pycache__
 .cache
 blowbot.db
+yt_client_secret.json

@@ -1,13 +1,21 @@
 from locale import currency
 import os
-from typing import Union
+from typing import List, Union
 from models.songs import Song
 
 # from utils.constants import bot
 from discord.ext.commands import Bot
 
 # from discord import VoiceChannel
-from discord import Member, VoiceChannel, VoiceClient, VoiceProtocol, AudioSource
+from discord import (
+    Guild,
+    Member,
+    Role,
+    VoiceChannel,
+    VoiceClient,
+    VoiceProtocol,
+    AudioSource,
+)
 import discord
 import io
 from models.playlist import Playlist
@@ -54,6 +62,16 @@ async def disconnect(bot: Bot) -> None:
 # Check if the account in question is an admin in the server
 async def is_admin(account: Member) -> bool:
     return account.guild_permissions.administrator
+
+
+async def has_role(account: Member, role: Role) -> bool:
+    if role in account.roles:
+        return True
+    return False
+
+
+async def get_roles(guild: Guild) -> List[Role]:
+    return guild.roles
 
 
 # Play the current song

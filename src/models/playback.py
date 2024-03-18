@@ -6,7 +6,7 @@ from utils.constants import Base, CurrentlyPlaying, PlaylistNames, Session
 from typing import Optional
 from models.model_fields import PlaybackFields
 from utils.constants import CurrentlyPlaying, PlaylistNames
-from sqlalchemy import BigInteger, Column, Integer, String
+from sqlalchemy import BigInteger, Column, Enum, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.util import concurrency
@@ -17,9 +17,9 @@ class Playback(Base):
 
     id = Column(Integer, primary_key=True, nullable=False, unique=True)
     guild_id = Column(BigInteger, unique=True, nullable=False)
-    current_playlist = Column(String)
+    current_playlist = Column(Enum(PlaylistNames))
     current_playlist_index = Column(Integer)
-    currently_playing = Column(String)
+    currently_playing = Column(Enum(CurrentlyPlaying))
 
     @staticmethod
     def add_sync(

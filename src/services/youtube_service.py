@@ -100,6 +100,7 @@ async def check_song_in_playlist(ydl: YoutubeDL, song: Song) -> bool:
 
 
 # A general utility method to ensure that the YouTube playlist and db are synced
+# TODO: make this sync_database instead; this should sync ALL yt data with the database
 async def sync_playlist(
     session, guild_id, ydl: YoutubeDL, playlist_name: PlaylistNames
 ) -> bool:

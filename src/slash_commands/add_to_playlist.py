@@ -5,8 +5,8 @@ from models.songs import Song
 from models.users import User
 from services import spotify_service
 from services import youtube_service
-from utils.constants import SERVERS, PlaylistNames, Session, bot, ydl, spotify
-from utils.messages import NO_GUILD_ERROR
+from utils.constants import SERVERS, PlaylistNames, Session, bot, ydl, spotify, yt
+from utils.messages import CONNECTION_ERROR, NO_GUILD_ERROR
 from typing import Optional
 
 # Define constant string literals
@@ -44,6 +44,14 @@ async def add_to_playlist(
 ) -> None:
     if ctx.guild is None:
         raise Exception(NO_GUILD_ERROR)
+    if yt.refresh_token == None:
+        await ctx.respond(
+            CONNECTION_ERROR.format(
+                "YouTube", "the current refresh token is invalid or has expired"
+            ),
+            ephemeral=True,
+        )
+        return
     with Session() as session:
         # validate that url is a youtube url
         if not await youtube_service.validate_youtube_url(url):

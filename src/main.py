@@ -1,7 +1,9 @@
+# NOTE: we don't have a privacy policy, TOS, or a domain, so we can't go public
 import asyncio
 from http import client
 from math import e
 from os import name
+import webbrowser
 import discord
 from discord.ext import commands
 
@@ -18,6 +20,8 @@ from utils.constants import (
     ydl,
     initialize_collections,
     engine,
+    yt_oauth_authorize_url,
+    yt,
 )
 
 # For discord audio
@@ -77,6 +81,7 @@ VOICE_CONNECT_ERROR_MESSAGE = "Could not connect to voice"
 async def on_ready():
     # Initialize databases
     await initialize_collections(engine)
+    # Attempt to get OAuth2 access
     # Sync command tree
     # await bot.sync_commands()
     with Session() as session:
@@ -164,4 +169,3 @@ try:
 except KeyboardInterrupt:
     # Clear the queue
     asyncio.run(on_disconnect())
-    # stop_db()

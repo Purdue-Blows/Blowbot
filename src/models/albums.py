@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import (
     BigInteger,
     Column,
-    Enum,
     Integer,
     String,
     Boolean,
@@ -31,19 +30,17 @@ COULD_NOT_GET_PLAYLIST_NUM = "Could not get playlist num"
 PLAYBACK_ISSUE = "There was an issue with playback"
 
 
-class Playlist(Base):
-    __tablename__ = "playlists"
+class Albums(Base):
+    __tablename__ = "albums"
 
     id = Column(Integer, primary_key=True, nullable=False, unique=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
-    played = Column(Boolean, nullable=False)
-    playlist_num = Column(Integer, nullable=False)
-    playlist_name = Column(Enum(PlaylistNames), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    guild_id = Column(BigInteger, nullable=False)
-
-    song = relationship("Song")
-    user = relationship("User")
+    name = Column(String, nullable=False, unique=True)
+    description = Column(String, nullable=False)
+    # TODO: how to handle one to many relationships?
+    tracks = Column(List[Integer], ForeignKey("tracks.id"), nullable=False)
+    completed = Column(Boolean, nullable=False)
+    video_url = Column(String)  # A video isn't necessarily required on every challenge,
+    # But can be added if completed
 
     @staticmethod
     def from_map_sync(session: Session, map: Dict[str, Any]) -> "Playlist":

@@ -9,14 +9,16 @@ from models.users import User
 from models.model_fields import PlaybackFields, PlaylistFields, QueueFields
 from models.playback import Playback
 
-from utils.constants import PURDUE_BLOWS_PLAYLISTS, Base, PlaylistNames
+from utils.constants import PURDUE_BLOWS_PLAYLISTS, Base, PlaylistNames, RoleNames, Step
 import random
 from sqlalchemy.orm import Session
 from sqlalchemy import (
+    BLOB,
     BigInteger,
     Column,
     Enum,
     Integer,
+    LargeBinary,
     String,
     Boolean,
     ForeignKey,
@@ -31,19 +33,22 @@ COULD_NOT_GET_PLAYLIST_NUM = "Could not get playlist num"
 PLAYBACK_ISSUE = "There was an issue with playback"
 
 
-class Playlist(Base):
-    __tablename__ = "playlists"
+class Tracks(Base):
+    __tablename__ = "tracks"
 
     id = Column(Integer, primary_key=True, nullable=False, unique=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
-    played = Column(Boolean, nullable=False)
-    playlist_num = Column(Integer, nullable=False)
-    playlist_name = Column(Enum(PlaylistNames), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    guild_id = Column(BigInteger, nullable=False)
-
-    song = relationship("Song")
-    user = relationship("User")
+    name = Column(String, nullable=False, unique=True)
+    description = Column(String, nullable=False)
+    score = Column(LargeBinary, nullable=False)
+    step = Column(Enum(Step), nullable=False)
+    roles = Column(Enum(RoleNames))
+    arrangers = Column(List[Integer], ForeignKey("users.id"))
+    # TODO: one to many relationships
+    performers = Column(List[Integer], ForeignKey("users.id"))
+    playlist_url = Column(
+        String, nullable=False
+    )  # A video isn't necessarily required on every challenge,
+    # But can be added if completed
 
     @staticmethod
     def from_map_sync(session: Session, map: Dict[str, Any]) -> "Playlist":
