@@ -1,4 +1,5 @@
 # Blowbot
+> Make sure to check out the development branch, which will eventually get merged into this branch... this branch is currently an older (deprecated) version
 The official Purdue Blows Discord Bot! 
 - Built by Purdue Jazz for Purdue Jazz!
 - Utilizes: 
